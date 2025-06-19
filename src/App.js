@@ -5,6 +5,7 @@ import Categories from './pages/Categories';
 import Product from './pages/Product';
 import Customers from './pages/Customers';
 import Suppliers from './pages/Suppliers';
+import User from './pages/User';
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
           <Route path="/product" element={<Product />} />
           <Route path="/customers" element={<Customers />} />
           <Route path="/suppliers" element={<Suppliers />} />
+          <Route path="/user" element={<User />} />
         </Routes>
       </MainLayout>
     </Router>

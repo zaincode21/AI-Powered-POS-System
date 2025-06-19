@@ -5,7 +5,7 @@ const navItems = [
   { label: 'Dashboard', icon: '🏠', path: '/' },
   { label: 'Customers', icon: '🧑‍🤝‍🧑', path: '/customers' },
   { label: 'Suppliers', icon: '🚚', path: '/suppliers' },
-  { label: 'Products', icon: '📦', path: '/products' },
+  { label: 'User', icon: '👥', path: '/user' },
   { label: 'Stock In', icon: '➕', path: '/stock-in' },
   { label: 'Stock Out (Sales)', icon: '➖', path: '/stock-out' },
   { label: 'Reports', icon: '📊', path: '/reports' },
