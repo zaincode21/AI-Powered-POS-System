@@ -255,6 +255,16 @@ function User() {
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium mb-1">Password</label>
+                <input
+                        type="password"
+                        className="w-full border rounded-lg px-3 py-2"
+                        value={formData.password_hash}
+                        onChange={e => setFormData({ ...formData, password_hash: e.target.value })}
+                        required={!editingUser} // required only when adding
+                />
+                </div>
+              <div>
                 <label className="block text-sm font-medium mb-1">Full Name</label>
                 <input
                   type="text"
