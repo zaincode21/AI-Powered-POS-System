@@ -1,9 +1,16 @@
 const userModel = require('../models/userModel');
+const bcrypt = require('bcryptjs');
 
 // Create user
 async function createUser(req, res) {
   try {
-    const user = await userModel.createUser(req.body);
+    let { password_hash, ...userData } = req.body;
+    if (!password_hash) {
+      // Set default password and hash it
+      const defaultPassword = '123456';
+      password_hash = await bcrypt.hash(defaultPassword, 10);
+    }
+    const user = await userModel.createUser({ ...userData, password_hash });
     res.status(201).json(user);
   } catch (err) {
     res.status(400).json({ error: err.message });
