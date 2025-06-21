@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const userRoutes = require('./routes/userRoutes');
 const supplierRoutes = require('./routes/supplierRoutes');
+const categoryRoutes = require('./routes/categoryRoutes');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -11,6 +12,7 @@ app.use(express.json());
 
 app.use('/api/users', userRoutes);
 app.use('/api/suppliers', supplierRoutes);
+app.use('/api/categories', categoryRoutes);
 
 app.get('/', (req, res) => {
   res.send('POS Backend API is running');
