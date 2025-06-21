@@ -5,8 +5,8 @@ async function createSupplier(req, res) {
     const supplier = await supplierModel.createSupplier(req.body);
     res.status(201).json(supplier);
   } catch (err) {
-    if (err.code === '23505') {
-      return res.status(400).json({ error: 'Supplier name or email already exists.' });
+    if (err.code === '23505' && err.detail && err.detail.includes('email')) {
+      return res.status(400).json({ error: 'Supplier email already exists.' });
     }
     res.status(400).json({ error: err.message });
   }
@@ -37,8 +37,8 @@ async function updateSupplier(req, res) {
     if (!supplier) return res.status(404).json({ error: 'Supplier not found' });
     res.json(supplier);
   } catch (err) {
-    if (err.code === '23505') {
-      return res.status(400).json({ error: 'Supplier name or email already exists.' });
+    if (err.code === '23505' && err.detail && err.detail.includes('email')) {
+      return res.status(400).json({ error: 'Supplier email already exists.' });
     }
     res.status(400).json({ error: err.message });
   }
