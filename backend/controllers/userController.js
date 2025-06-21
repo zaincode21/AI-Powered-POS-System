@@ -13,6 +13,10 @@ async function createUser(req, res) {
     const user = await userModel.createUser({ ...userData, password_hash });
     res.status(201).json(user);
   } catch (err) {
+    // Check for duplicate email error (PostgreSQL)
+    if (err.code === '23505' && err.detail && err.detail.includes('email')) {
+      return res.status(400).json({ error: 'Email already exists.' });
+    }
     res.status(400).json({ error: err.message });
   }
 }
