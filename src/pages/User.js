@@ -15,15 +15,23 @@ function User() {
     email: '',
     full_name: '',
     role: 'cashier',
-    is_active: true,
-    password_hash: '', // required for backend
+    is_active: true
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState(''); // 'success' or 'error'
 
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => setMessage(''), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
 
   async function fetchUsers() {
     setLoading(true);
@@ -39,16 +47,26 @@ function User() {
   }
 
   const handleAddUser = async () => {
-    if (formData.username.trim() && formData.email.trim() && formData.password_hash.trim()) {
+    if (formData.username.trim() && formData.email.trim()) {
       setLoading(true);
       setError('');
       try {
         await createUser(formData);
         fetchUsers();
         setShowAddModal(false);
-        setFormData({ username: '', email: '', full_name: '', role: 'cashier', is_active: true, password_hash: '' });
+        setFormData({ username: '', email: '', full_name: '', role: 'cashier', is_active: true });
+        setMessage('User added successfully!');
+        setMessageType('success');
       } catch (err) {
-        setError('Failed to add user');
+        let msg = 'Failed to add user';
+        if (err && err.message) {
+          try {
+            const parsed = JSON.parse(err.message);
+            if (parsed && parsed.error) msg = parsed.error;
+          } catch {}
+        }
+        setMessage(msg);
+        setMessageType('error');
       } finally {
         setLoading(false);
       }
@@ -63,9 +81,19 @@ function User() {
         await updateUser(editingUser.id, formData);
         fetchUsers();
         setEditingUser(null);
-        setFormData({ username: '', email: '', full_name: '', role: 'cashier', is_active: true, password_hash: '' });
+        setFormData({ username: '', email: '', full_name: '', role: 'cashier', is_active: true });
+        setMessage('User updated successfully!');
+        setMessageType('success');
       } catch (err) {
-        setError('Failed to update user');
+        let msg = 'Failed to update user';
+        if (err && err.message) {
+          try {
+            const parsed = JSON.parse(err.message);
+            if (parsed && parsed.error) msg = parsed.error;
+          } catch {}
+        }
+        setMessage(msg);
+        setMessageType('error');
       } finally {
         setLoading(false);
       }
@@ -79,8 +107,18 @@ function User() {
       try {
         await deleteUserApi(id);
         fetchUsers();
+        setMessage('User deleted successfully!');
+        setMessageType('success');
       } catch (err) {
-        setError('Failed to delete user');
+        let msg = 'Failed to delete user';
+        if (err && err.message) {
+          try {
+            const parsed = JSON.parse(err.message);
+            if (parsed && parsed.error) msg = parsed.error;
+          } catch {}
+        }
+        setMessage(msg);
+        setMessageType('error');
       } finally {
         setLoading(false);
       }
@@ -94,19 +132,24 @@ function User() {
       email: user.email,
       full_name: user.full_name,
       role: user.role,
-      is_active: user.is_active,
-      password_hash: '', // leave blank for edit
+      is_active: user.is_active
     });
   };
 
   const closeModal = () => {
     setShowAddModal(false);
     setEditingUser(null);
-    setFormData({ username: '', email: '', full_name: '', role: 'cashier', is_active: true, password_hash: '' });
+    setFormData({ username: '', email: '', full_name: '', role: 'cashier', is_active: true });
   };
 
   return (
     <div className="flex flex-col w-full min-h-screen space-y-4 sm:space-y-6">
+      {/* Feedback Message */}
+      {message && (
+        <div className={`mb-4 p-3 rounded ${messageType === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+          {message}
+        </div>
+      )}
       {/* Header */}
       <div className="bg-white rounded-xl shadow p-4 sm:p-6 w-full">
         <div className="flex flex-col sm:flex-row items-center justify-between mb-4 sm:mb-6 gap-2 sm:gap-0">
@@ -252,16 +295,6 @@ function User() {
                   value={formData.email}
                   onChange={e => setFormData({ ...formData, email: e.target.value })}
                   required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Password</label>
-                <input
-                        type="password"
-                        className="w-full border rounded-lg px-3 py-2"
-                        value={formData.password_hash}
-                        onChange={e => setFormData({ ...formData, password_hash: e.target.value })}
-                        required={!editingUser} // required only when adding
                 />
                 </div>
               <div>

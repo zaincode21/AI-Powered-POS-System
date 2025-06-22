@@ -1,29 +1,138 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import {
+  getSuppliers,
+  createSupplier,
+  updateSupplier,
+  deleteSupplier as deleteSupplierApi
+} from '../services/supplierService';
 
 function Suppliers() {
-  // Sample suppliers data
-  const [suppliers, setSuppliers] = useState([
-    {
-      id: 1,
-      name: 'Acme Corp',
-      contact_person: 'Alice Johnson',
-      email: 'alice@acmecorp.com',
-      phone: '555-1234',
-      address: '123 Main St, Springfield',
-      payment_terms: 'Net 30',
-      is_active: true
-    },
-    {
-      id: 2,
-      name: 'Global Supplies',
-      contact_person: 'Bob Smith',
-      email: 'bob@globalsupplies.com',
-      phone: '555-5678',
-      address: '456 Elm St, Metropolis',
-      payment_terms: 'Net 15',
-      is_active: false
+  const [suppliers, setSuppliers] = useState([]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingSupplier, setEditingSupplier] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    contact_person: '',
+    email: '',
+    phone: '',
+    address: '',
+    payment_terms: '',
+    is_active: true
+  });
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState(''); // 'success' or 'error'
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchSuppliers();
+  }, []);
+
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => setMessage(''), 3000);
+      return () => clearTimeout(timer);
     }
-  ]);
+  }, [message]);
+
+  async function fetchSuppliers() {
+    setLoading(true);
+    try {
+      const data = await getSuppliers();
+      setSuppliers(data);
+    } catch (err) {
+      setMessage('Failed to fetch suppliers');
+      setMessageType('error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const handleAddSupplier = async () => {
+    if (formData.name.trim()) {
+      setLoading(true);
+      try {
+        await createSupplier(formData);
+        fetchSuppliers();
+      setFormData({ name: '', contact_person: '', email: '', phone: '', address: '', payment_terms: '', is_active: true });
+      setShowAddModal(false);
+        setMessage('Supplier added successfully!');
+        setMessageType('success');
+      } catch (err) {
+        let msg = 'Failed to add supplier';
+        if (err && err.message) {
+          try {
+            const parsed = JSON.parse(err.message);
+            if (parsed && parsed.error) msg = parsed.error;
+          } catch {}
+        }
+        setMessage(msg);
+        setMessageType('error');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleEditSupplier = async () => {
+    if (editingSupplier && formData.name.trim()) {
+      setLoading(true);
+      try {
+        await updateSupplier(editingSupplier.id, formData);
+        fetchSuppliers();
+      setEditingSupplier(null);
+      setFormData({ name: '', contact_person: '', email: '', phone: '', address: '', payment_terms: '', is_active: true });
+        setMessage('Supplier updated successfully!');
+        setMessageType('success');
+      } catch (err) {
+        let msg = 'Failed to update supplier';
+        if (err && err.message) {
+          try {
+            const parsed = JSON.parse(err.message);
+            if (parsed && parsed.error) msg = parsed.error;
+          } catch {}
+        }
+        setMessage(msg);
+        setMessageType('error');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleDeleteSupplier = async (id) => {
+    if (window.confirm('Are you sure you want to delete this supplier?')) {
+      setLoading(true);
+      try {
+        await deleteSupplierApi(id);
+        fetchSuppliers();
+        setMessage('Supplier deleted successfully!');
+        setMessageType('success');
+      } catch (err) {
+        let msg = 'Failed to delete supplier';
+        if (err && err.message) {
+          try {
+            const parsed = JSON.parse(err.message);
+            if (parsed && parsed.error) msg = parsed.error;
+          } catch {}
+        }
+        setMessage(msg);
+        setMessageType('error');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const openEditModal = (supplier) => {
+    setEditingSupplier(supplier);
+    setFormData({ ...supplier });
+  };
+
+  const closeModal = () => {
+    setShowAddModal(false);
+    setEditingSupplier(null);
+    setFormData({ name: '', contact_person: '', email: '', phone: '', address: '', payment_terms: '', is_active: true });
+  };
 
   // Example AI reorder alerts data
   const reorderAlerts = [
@@ -38,60 +147,6 @@ function Suppliers() {
       reorder: 16
     }
   ];
-
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingSupplier, setEditingSupplier] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    contact_person: '',
-    email: '',
-    phone: '',
-    address: '',
-    payment_terms: '',
-    is_active: true
-  });
-
-  const handleAddSupplier = () => {
-    if (formData.name.trim()) {
-      const newSupplier = {
-        ...formData,
-        id: Date.now(),
-        is_active: Boolean(formData.is_active)
-      };
-      setSuppliers([...suppliers, newSupplier]);
-      setFormData({ name: '', contact_person: '', email: '', phone: '', address: '', payment_terms: '', is_active: true });
-      setShowAddModal(false);
-    }
-  };
-
-  const handleEditSupplier = () => {
-    if (editingSupplier && formData.name.trim()) {
-      setSuppliers(suppliers.map(sup => 
-        sup.id === editingSupplier.id 
-          ? { ...formData, id: sup.id, is_active: Boolean(formData.is_active) }
-          : sup
-      ));
-      setEditingSupplier(null);
-      setFormData({ name: '', contact_person: '', email: '', phone: '', address: '', payment_terms: '', is_active: true });
-    }
-  };
-
-  const handleDeleteSupplier = (id) => {
-    if (window.confirm('Are you sure you want to delete this supplier?')) {
-      setSuppliers(suppliers.filter(sup => sup.id !== id));
-    }
-  };
-
-  const openEditModal = (supplier) => {
-    setEditingSupplier(supplier);
-    setFormData({ ...supplier });
-  };
-
-  const closeModal = () => {
-    setShowAddModal(false);
-    setEditingSupplier(null);
-    setFormData({ name: '', contact_person: '', email: '', phone: '', address: '', payment_terms: '', is_active: true });
-  };
 
   return (
     <div className="flex flex-col w-full min-h-screen space-y-4 sm:space-y-6">
@@ -318,6 +373,28 @@ function Suppliers() {
                 className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 py-2 rounded-lg font-medium transition"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Feedback Message */}
+      {message && (
+        <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 ${messageType === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
+          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">
+              {message}
+            </h2>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setMessage('');
+                  setMessageType('');
+                }}
+                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg font-medium transition"
+              >
+                Close
               </button>
             </div>
           </div>

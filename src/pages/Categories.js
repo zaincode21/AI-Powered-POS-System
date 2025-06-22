@@ -1,15 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import {
+  getCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory as deleteCategoryApi
+} from '../services/categoryService';
 
 function Categories() {
-  // Sample categories data - in a real app this would come from an API
-  const [categories, setCategories] = useState([
-    { id: 1, name: 'Electronics', description: 'Electronic devices and accessories', productCount: 45, status: 'Active' },
-    { id: 2, name: 'Clothing', description: 'Apparel and fashion items', productCount: 120, status: 'Active' },
-    { id: 3, name: 'Books', description: 'Books and publications', productCount: 78, status: 'Active' },
-    { id: 4, name: 'Home & Garden', description: 'Home improvement and garden supplies', productCount: 32, status: 'Active' },
-    { id: 5, name: 'Sports', description: 'Sports equipment and accessories', productCount: 56, status: 'Inactive' },
-  ]);
-
+  const [categories, setCategories] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [formData, setFormData] = useState({
@@ -17,6 +15,133 @@ function Categories() {
     description: '',
     status: 'Active'
   });
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState(''); // 'success' or 'error'
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => setMessage(''), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
+
+  async function fetchCategories() {
+    setLoading(true);
+    try {
+      const data = await getCategories();
+      setCategories(data);
+    } catch (err) {
+      setMessage('Failed to fetch categories');
+      setMessageType('error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const handleAddCategory = async () => {
+    if (formData.name.trim()) {
+      setLoading(true);
+      try {
+        // Map status to is_active boolean
+        const payload = {
+          ...formData,
+          is_active: formData.status === 'Active',
+        };
+        await createCategory(payload);
+        fetchCategories();
+        setFormData({ name: '', description: '', status: 'Active' });
+        setShowAddModal(false);
+        setMessage('Category added successfully!');
+        setMessageType('success');
+      } catch (err) {
+        let msg = 'Failed to add category';
+        if (err && err.message) {
+          try {
+            const parsed = JSON.parse(err.message);
+            if (parsed && parsed.error) msg = parsed.error;
+          } catch {}
+        }
+        setMessage(msg);
+        setMessageType('error');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleEditCategory = async () => {
+    if (editingCategory && formData.name.trim()) {
+      setLoading(true);
+      try {
+        const payload = {
+          ...formData,
+          is_active: formData.status === 'Active',
+        };
+        await updateCategory(editingCategory.id, payload);
+        fetchCategories();
+        setEditingCategory(null);
+        setFormData({ name: '', description: '', status: 'Active' });
+        setMessage('Category updated successfully!');
+        setMessageType('success');
+      } catch (err) {
+        let msg = 'Failed to update category';
+        if (err && err.message) {
+          try {
+            const parsed = JSON.parse(err.message);
+            if (parsed && parsed.error) msg = parsed.error;
+          } catch {}
+        }
+        setMessage(msg);
+        setMessageType('error');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleDeleteCategory = async (id) => {
+    if (window.confirm('Are you sure you want to delete this category?')) {
+      setLoading(true);
+      try {
+        await deleteCategoryApi(id);
+        fetchCategories();
+        setMessage('Category deleted successfully!');
+        setMessageType('success');
+      } catch (err) {
+        let msg = 'Failed to delete category';
+        if (err && err.message) {
+          try {
+            const parsed = JSON.parse(err.message);
+            if (parsed && parsed.error) msg = parsed.error;
+          } catch {}
+        }
+        setMessage(msg);
+        setMessageType('error');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const openEditModal = (category) => {
+    setEditingCategory(category);
+    setFormData({
+      name: category.name,
+      description: category.description,
+      status: category.is_active ? 'Active' : 'Inactive'
+    });
+  };
+
+  const closeModal = () => {
+    setShowAddModal(false);
+    setEditingCategory(null);
+    setFormData({ name: '', description: '', status: 'Active' });
+  };
 
   // Example AI reorder alerts data
   const reorderAlerts = [
@@ -32,56 +157,14 @@ function Categories() {
     }
   ];
 
-  const handleAddCategory = () => {
-    if (formData.name.trim()) {
-      const newCategory = {
-        id: Date.now(),
-        name: formData.name,
-        description: formData.description,
-        productCount: 0,
-        status: formData.status
-      };
-      setCategories([...categories, newCategory]);
-      setFormData({ name: '', description: '', status: 'Active' });
-      setShowAddModal(false);
-    }
-  };
-
-  const handleEditCategory = () => {
-    if (editingCategory && formData.name.trim()) {
-      setCategories(categories.map(cat => 
-        cat.id === editingCategory.id 
-          ? { ...cat, name: formData.name, description: formData.description, status: formData.status }
-          : cat
-      ));
-      setEditingCategory(null);
-      setFormData({ name: '', description: '', status: 'Active' });
-    }
-  };
-
-  const handleDeleteCategory = (id) => {
-    if (window.confirm('Are you sure you want to delete this category?')) {
-      setCategories(categories.filter(cat => cat.id !== id));
-    }
-  };
-
-  const openEditModal = (category) => {
-    setEditingCategory(category);
-    setFormData({
-      name: category.name,
-      description: category.description,
-      status: category.status
-    });
-  };
-
-  const closeModal = () => {
-    setShowAddModal(false);
-    setEditingCategory(null);
-    setFormData({ name: '', description: '', status: 'Active' });
-  };
-
   return (
     <div className="flex flex-col w-full min-h-screen space-y-4 sm:space-y-6">
+      {/* Feedback Message */}
+      {message && (
+        <div className={`mb-4 p-3 rounded ${messageType === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+          {message}
+        </div>
+      )}
       {/* Header */}
       <div className="bg-white rounded-xl shadow p-4 sm:p-6 w-full">
         <div className="flex flex-col sm:flex-row items-center justify-between mb-4 sm:mb-6 gap-2 sm:gap-0">
@@ -144,11 +227,11 @@ function Categories() {
                   </td>
                   <td className="py-3 px-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      category.status === 'Active' 
-                        ? 'bg-green-100 text-green-700' 
+                      category.is_active
+                        ? 'bg-green-100 text-green-700'
                         : 'bg-gray-100 text-gray-700'
                     }`}>
-                      {category.status}
+                      {category.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </td>
                   <td className="py-3 px-3">
@@ -185,11 +268,11 @@ function Categories() {
                   {category.productCount} items
                 </span>
                 <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                  category.status === 'Active' 
-                    ? 'bg-green-100 text-green-700' 
+                  category.is_active
+                    ? 'bg-green-100 text-green-700'
                     : 'bg-gray-100 text-gray-700'
                 }`}>
-                  {category.status}
+                  {category.is_active ? 'Active' : 'Inactive'}
                 </span>
               </div>
               <div className="flex gap-3 mt-2">
