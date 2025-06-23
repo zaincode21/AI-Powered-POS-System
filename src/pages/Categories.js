@@ -54,8 +54,8 @@ function Categories() {
         };
         await createCategory(payload);
         fetchCategories();
-        setFormData({ name: '', description: '', status: 'Active' });
-        setShowAddModal(false);
+      setFormData({ name: '', description: '', status: 'Active' });
+      setShowAddModal(false);
         setMessage('Category added successfully!');
         setMessageType('success');
       } catch (err) {
@@ -84,8 +84,8 @@ function Categories() {
         };
         await updateCategory(editingCategory.id, payload);
         fetchCategories();
-        setEditingCategory(null);
-        setFormData({ name: '', description: '', status: 'Active' });
+      setEditingCategory(null);
+      setFormData({ name: '', description: '', status: 'Active' });
         setMessage('Category updated successfully!');
         setMessageType('success');
       } catch (err) {
@@ -228,7 +228,7 @@ function Categories() {
                   <td className="py-3 px-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                       category.is_active
-                        ? 'bg-green-100 text-green-700'
+                        ? 'bg-green-100 text-green-700' 
                         : 'bg-gray-100 text-gray-700'
                     }`}>
                       {category.is_active ? 'Active' : 'Inactive'}
@@ -269,7 +269,7 @@ function Categories() {
                 </span>
                 <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                   category.is_active
-                    ? 'bg-green-100 text-green-700'
+                    ? 'bg-green-100 text-green-700' 
                     : 'bg-gray-100 text-gray-700'
                 }`}>
                   {category.is_active ? 'Active' : 'Inactive'}

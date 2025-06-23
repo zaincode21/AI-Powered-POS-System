@@ -1,66 +1,158 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import {
+  getProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct as deleteProductApi
+} from '../services/productService';
+import { getCategories } from '../services/categoryService';
+import { QRCodeCanvas } from 'qrcode.react';
 
 function Product() {
-  // Sample product data
-  const [products, setProducts] = useState([
-    { id: 1, name: 'Lavender Dreams Perfume', category: 'Perfume', stock: 3, price: 49.99, status: 'Low Stock' },
-    { id: 2, name: 'Rose Gold Luxury Watch', category: 'Accessories', stock: 5, price: 199.99, status: 'Low Stock' },
-    { id: 3, name: 'Classic White Shirt', category: 'Clothing', stock: 25, price: 29.99, status: 'In Stock' },
-    { id: 4, name: 'Bluetooth Headphones', category: 'Electronics', stock: 50, price: 89.99, status: 'In Stock' },
-  ]);
-
-  // Hardcoded categories list (should match Categories page)
-  const categories = [
-    'Electronics',
-    'Clothing',
-    'Books',
-    'Home & Garden',
-    'Sports',
-    'Perfume',
-    'Accessories',
-  ];
-
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
-    category: '',
-    stock: '',
-    price: '',
-    status: 'In Stock'
+    category_id: '',
+    description: '',
+    cost_price: '',
+    selling_price: '',
+    current_stock: '',
+    status: 'In Stock',
+    is_active: true
   });
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState(''); // 'success' or 'error'
+  const [loading, setLoading] = useState(false);
+  const [lastCreatedProduct, setLastCreatedProduct] = useState(null);
+  const [showQrModal, setShowQrModal] = useState(false);
 
-  const handleAddProduct = () => {
-    if (formData.name.trim() && formData.category.trim() && formData.stock && formData.price) {
-      const newProduct = {
-        id: Date.now(),
-        name: formData.name,
-        category: formData.category,
-        stock: Number(formData.stock),
-        price: Number(formData.price),
-        status: formData.status
-      };
-      setProducts([...products, newProduct]);
-      setFormData({ name: '', category: '', stock: '', price: '', status: 'In Stock' });
-      setShowAddModal(false);
+  useEffect(() => {
+    fetchProducts();
+    fetchCategories();
+  }, []);
+
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => setMessage(''), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
+
+  async function fetchProducts() {
+    setLoading(true);
+    try {
+      const data = await getProducts();
+      setProducts(data);
+    } catch (err) {
+      setMessage('Failed to fetch products');
+      setMessageType('error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function fetchCategories() {
+    try {
+      const data = await getCategories();
+      setCategories(data);
+    } catch (err) {
+      setMessage('Failed to fetch categories');
+      setMessageType('error');
+    }
+  }
+
+  const handleAddProduct = async () => {
+    if (formData.name.trim() && formData.category_id && formData.cost_price && formData.selling_price && formData.current_stock) {
+      setLoading(true);
+      try {
+        const payload = {
+          ...formData,
+          cost_price: Number(formData.cost_price),
+          selling_price: Number(formData.selling_price),
+          current_stock: Number(formData.current_stock),
+          is_active: formData.status === 'In Stock' || formData.status === 'Low Stock',
+        };
+        const created = await createProduct(payload);
+        fetchProducts();
+        setFormData({ name: '', category_id: '', description: '', cost_price: '', selling_price: '', current_stock: '', status: 'In Stock', is_active: true });
+        setShowAddModal(false);
+        setMessage('Product added successfully!');
+        setMessageType('success');
+        setLastCreatedProduct(created);
+        setShowQrModal(true);
+      } catch (err) {
+        let msg = 'Failed to add product';
+        if (err && err.message) {
+          try {
+            const parsed = JSON.parse(err.message);
+            if (parsed && parsed.error) msg = parsed.error;
+          } catch {}
+        }
+        setMessage(msg);
+        setMessageType('error');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
-  const handleEditProduct = () => {
-    if (editingProduct && formData.name.trim() && formData.category.trim() && formData.stock && formData.price) {
-      setProducts(products.map(prod => 
-        prod.id === editingProduct.id 
-          ? { ...prod, name: formData.name, category: formData.category, stock: Number(formData.stock), price: Number(formData.price), status: formData.status }
-          : prod
-      ));
-      setEditingProduct(null);
-      setFormData({ name: '', category: '', stock: '', price: '', status: 'In Stock' });
+  const handleEditProduct = async () => {
+    if (editingProduct && formData.name.trim() && formData.category_id && formData.cost_price && formData.selling_price && formData.current_stock) {
+      setLoading(true);
+      try {
+        const payload = {
+          ...formData,
+          cost_price: Number(formData.cost_price),
+          selling_price: Number(formData.selling_price),
+          current_stock: Number(formData.current_stock),
+          is_active: formData.status === 'In Stock' || formData.status === 'Low Stock',
+        };
+        await updateProduct(editingProduct.id, payload);
+        fetchProducts();
+        setEditingProduct(null);
+        setFormData({ name: '', category_id: '', description: '', cost_price: '', selling_price: '', current_stock: '', status: 'In Stock', is_active: true });
+        setMessage('Product updated successfully!');
+        setMessageType('success');
+      } catch (err) {
+        let msg = 'Failed to update product';
+        if (err && err.message) {
+          try {
+            const parsed = JSON.parse(err.message);
+            if (parsed && parsed.error) msg = parsed.error;
+          } catch {}
+        }
+        setMessage(msg);
+        setMessageType('error');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
-  const handleDeleteProduct = (id) => {
+  const handleDeleteProduct = async (id) => {
     if (window.confirm('Are you sure you want to delete this product?')) {
-      setProducts(products.filter(prod => prod.id !== id));
+      setLoading(true);
+      try {
+        await deleteProductApi(id);
+        fetchProducts();
+        setMessage('Product deleted successfully!');
+        setMessageType('success');
+      } catch (err) {
+        let msg = 'Failed to delete product';
+        if (err && err.message) {
+          try {
+            const parsed = JSON.parse(err.message);
+            if (parsed && parsed.error) msg = parsed.error;
+          } catch {}
+        }
+        setMessage(msg);
+        setMessageType('error');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -68,21 +160,56 @@ function Product() {
     setEditingProduct(product);
     setFormData({
       name: product.name,
-      category: product.category,
-      stock: product.stock,
-      price: product.price,
-      status: product.status
+      category_id: product.category_id,
+      description: product.description || '',
+      cost_price: product.cost_price,
+      selling_price: product.selling_price,
+      current_stock: product.current_stock,
+      status: product.is_active ? (product.current_stock <= (product.min_stock_level || 5) ? 'Low Stock' : 'In Stock') : 'Out of Stock',
+      is_active: product.is_active
     });
   };
 
   const closeModal = () => {
     setShowAddModal(false);
     setEditingProduct(null);
-    setFormData({ name: '', category: '', stock: '', price: '', status: 'In Stock' });
+    setFormData({ name: '', category_id: '', description: '', cost_price: '', selling_price: '', current_stock: '', status: 'In Stock', is_active: true });
+  };
+
+  const renderQrModal = () => {
+    if (!showQrModal || !lastCreatedProduct) return null;
+    const qrValue = JSON.stringify({
+      id: lastCreatedProduct.id,
+      name: lastCreatedProduct.name,
+      cost_price: lastCreatedProduct.cost_price
+    });
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md flex flex-col items-center">
+          <h2 className="text-xl font-bold mb-4">Product QR Code</h2>
+          <QRCodeCanvas value={qrValue} size={180} />
+          <div className="mt-4 text-lg font-semibold">{lastCreatedProduct.name}</div>
+          <div className="mb-4 text-gray-700">Cost: ${Number(lastCreatedProduct.cost_price).toFixed(2)}</div>
+          <button
+            onClick={() => setShowQrModal(false)}
+            className="mt-2 px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
   };
 
   return (
     <div className="flex flex-col w-full min-h-screen space-y-4 sm:space-y-6">
+      {renderQrModal()}
+      {/* Feedback Message */}
+      {message && (
+        <div className={`mb-4 p-3 rounded ${messageType === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+          {message}
+        </div>
+      )}
       {/* Header */}
       <div className="bg-white rounded-xl shadow p-4 sm:p-6 w-full">
         <div className="flex flex-col sm:flex-row items-center justify-between mb-4 sm:mb-6 gap-2 sm:gap-0">
@@ -118,20 +245,36 @@ function Product() {
               {products.map((product) => (
                 <tr key={product.id} className="border-b hover:bg-gray-50">
                   <td className="py-3 px-3 font-medium">{product.name}</td>
-                  <td className="py-3 px-3 text-gray-600">{product.category}</td>
+                  <td className="py-3 px-3 text-gray-600">
+                    {product.category_name || '-'}
+                  </td>
                   <td className="py-3 px-3">
-                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
-                      {product.stock} units
+                    <span className={`px-2 py-1 rounded-full text-xs ${
+                      product.current_stock < 40 ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {product.current_stock != null && !isNaN(Number(product.current_stock))
+                        ? `${product.current_stock} units`
+                        : '-'}
                     </span>
                   </td>
-                  <td className="py-3 px-3">${product.price.toFixed(2)}</td>
+                  <td className="py-3 px-3">
+                    {product.selling_price != null && !isNaN(Number(product.selling_price))
+                      ? `$${Number(product.selling_price).toFixed(2)}`
+                      : '-'}
+                  </td>
                   <td className="py-3 px-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      product.status === 'In Stock' 
-                        ? 'bg-green-100 text-green-700' 
-                        : 'bg-red-100 text-red-700'
+                      !product.is_active
+                        ? 'bg-gray-100 text-gray-700'
+                        : product.current_stock <= (product.min_stock_level || 5)
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-green-100 text-green-700'
                     }`}>
-                      {product.status}
+                      {!product.is_active
+                        ? 'Out of Stock'
+                        : product.current_stock <= (product.min_stock_level || 5)
+                          ? 'Low Stock'
+                          : 'In Stock'}
                     </span>
                   </td>
                   <td className="py-3 px-3">
@@ -162,20 +305,34 @@ function Product() {
           {products.map((product) => (
             <div key={product.id} className="border rounded-xl p-4 shadow-sm bg-white">
               <div className="font-semibold text-lg text-gray-800 mb-1">{product.name}</div>
-              <div className="text-gray-600 text-sm mb-2">Category: {product.category}</div>
+              <div className="text-gray-600 text-sm mb-2">Category: {product.category_name || '-'}</div>
               <div className="flex items-center gap-2 mb-2">
-                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
-                  {product.stock} units
+                <span className={`px-2 py-1 rounded-full text-xs ${
+                  product.current_stock < 40 ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-800'
+                }`}>
+                  {product.current_stock != null && !isNaN(Number(product.current_stock))
+                    ? `${product.current_stock} units`
+                    : '-'}
                 </span>
                 <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                  product.status === 'In Stock' 
-                    ? 'bg-green-100 text-green-700' 
-                    : 'bg-red-100 text-red-700'
+                  !product.is_active
+                    ? 'bg-gray-100 text-gray-700'
+                    : product.current_stock <= (product.min_stock_level || 5)
+                      ? 'bg-red-100 text-red-700'
+                      : 'bg-green-100 text-green-700'
                 }`}>
-                  {product.status}
+                  {!product.is_active
+                    ? 'Out of Stock'
+                    : product.current_stock <= (product.min_stock_level || 5)
+                      ? 'Low Stock'
+                      : 'In Stock'}
                 </span>
               </div>
-              <div className="text-gray-800 font-semibold mb-2">${product.price.toFixed(2)}</div>
+              <div className="text-gray-800 font-semibold mb-2">
+                {product.selling_price != null && !isNaN(Number(product.selling_price))
+                  ? `$${Number(product.selling_price).toFixed(2)}`
+                  : '-'}
+              </div>
               <div className="flex gap-3 mt-2">
                 <button
                   onClick={() => openEditModal(product)}
@@ -220,13 +377,13 @@ function Product() {
                   Category *
                 </label>
                 <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({...formData, category: e.target.value})}
+                  value={formData.category_id}
+                  onChange={(e) => setFormData({...formData, category_id: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 >
                   <option value="">Select category</option>
                   {categories.map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
                 </select>
               </div>
@@ -236,8 +393,8 @@ function Product() {
                 </label>
                 <input
                   type="number"
-                  value={formData.stock}
-                  onChange={(e) => setFormData({...formData, stock: e.target.value})}
+                  value={formData.current_stock}
+                  onChange={(e) => setFormData({...formData, current_stock: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   placeholder="Enter stock quantity"
                   min="0"
@@ -245,14 +402,28 @@ function Product() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Price *
+                  Cost Price *
                 </label>
                 <input
                   type="number"
-                  value={formData.price}
-                  onChange={(e) => setFormData({...formData, price: e.target.value})}
+                  value={formData.cost_price}
+                  onChange={(e) => setFormData({...formData, cost_price: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  placeholder="Enter price"
+                  placeholder="Enter cost price"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Selling Price *
+                </label>
+                <input
+                  type="number"
+                  value={formData.selling_price}
+                  onChange={(e) => setFormData({...formData, selling_price: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="Enter selling price"
                   min="0"
                   step="0.01"
                 />
