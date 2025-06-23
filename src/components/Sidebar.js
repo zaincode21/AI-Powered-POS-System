@@ -7,7 +7,7 @@ const navItems = [
   { label: 'Customers', icon: '🧑‍🤝‍🧑', path: '/customers' },
   { label: 'Suppliers', icon: '🚚', path: '/suppliers' },
   { label: 'User', icon: '👥', path: '/user' },
-  { label: 'Stock In', icon: '➕', path: '/stock-in' },
+  { label: 'Sale Items', icon: '➕', path: '/sale_items' },
   { label: 'Stock Out (Sales)', icon: '➖', path: '/stock-out' },
   { label: 'Reports', icon: '📊', path: '/reports' },
   { 

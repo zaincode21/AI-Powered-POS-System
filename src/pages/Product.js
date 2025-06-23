@@ -95,7 +95,7 @@ function Product() {
         const created = await createProduct(payload);
         fetchProducts();
         setFormData({ name: '', category_id: '', description: '', cost_price: '', selling_price: '', current_stock: '', status: 'In Stock', is_active: true, supplier_id: '' });
-        setShowAddModal(false);
+      setShowAddModal(false);
         setMessage('Product added successfully!');
         setMessageType('success');
         setLastCreatedProduct(created);
@@ -129,7 +129,7 @@ function Product() {
         };
         await updateProduct(editingProduct.id, payload);
         fetchProducts();
-        setEditingProduct(null);
+      setEditingProduct(null);
         setFormData({ name: '', category_id: '', description: '', cost_price: '', selling_price: '', current_stock: '', status: 'In Stock', is_active: true, supplier_id: '' });
         setMessage('Product updated successfully!');
         setMessageType('success');
