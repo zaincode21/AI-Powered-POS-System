@@ -38,10 +38,15 @@ async function deleteUser(id) {
   return result.rows[0];
 }
 
+async function getUserByEmail(email) {
+  return await User.findOne({ email });
+}
+
 module.exports = {
   createUser,
   getAllUsers,
   getUserById,
   updateUser,
   deleteUser,
+  getUserByEmail,
 }; 
