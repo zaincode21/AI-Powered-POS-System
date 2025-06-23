@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 const navItems = [
   { label: 'Dashboard', icon: '🏠', path: '/' },
+  { label: 'Store', icon: '➕', path: '/store' },
   { label: 'Customers', icon: '🧑‍🤝‍🧑', path: '/customers' },
   { label: 'Suppliers', icon: '🚚', path: '/suppliers' },
   { label: 'User', icon: '👥', path: '/user' },
