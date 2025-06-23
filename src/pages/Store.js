@@ -1,30 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import {
+  getStores,
+  createStore,
+  updateStore,
+  deleteStore,
+} from '../services/storeService';
 
 function Store() {
-  // Sample stores data (replace with API later)
-  const [stores, setStores] = useState([
-    {
-      id: 1,
-      name: 'Main Store',
-      address: '123 Main St, Cityville',
-      phone: '555-1234',
-      email: 'main@store.com',
-      tax_rate: 0.0750,
-      currency: 'USD',
-      timezone: 'America/New_York',
-    },
-    {
-      id: 2,
-      name: 'Branch Store',
-      address: '456 Side St, Townsville',
-      phone: '555-5678',
-      email: 'branch@store.com',
-      tax_rate: 0.0500,
-      currency: 'USD',
-      timezone: 'America/Chicago',
-    },
-  ]);
-
+  const [stores, setStores] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingStore, setEditingStore] = useState(null);
   const [formData, setFormData] = useState({
@@ -39,6 +22,7 @@ function Store() {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState(''); // 'success' or 'error'
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
 
   // Example AI reorder alerts data
   const reorderAlerts = [
@@ -70,65 +54,82 @@ function Store() {
   ];
 
   useEffect(() => {
+    fetchStores();
+  }, []);
+
+  async function fetchStores() {
+    setFetching(true);
+    try {
+      const data = await getStores();
+      setStores(data);
+    } catch (err) {
+      setMessage('Failed to fetch stores');
+      setMessageType('error');
+    } finally {
+      setFetching(false);
+    }
+  }
+
+  useEffect(() => {
     if (message) {
       const timer = setTimeout(() => setMessage(''), 3000);
       return () => clearTimeout(timer);
     }
   }, [message]);
 
-  const handleAddStore = () => {
-    if (formData.name.trim()) {
-      setLoading(true);
-      try {
-        const newStore = {
-          ...formData,
-          id: Date.now(),
-          tax_rate: formData.tax_rate ? Number(formData.tax_rate) : 0,
-        };
-        setStores([...stores, newStore]);
-        setFormData({ name: '', address: '', phone: '', email: '', tax_rate: '', currency: 'USD', timezone: 'UTC' });
-        setShowAddModal(false);
-        setMessage('Store added successfully!');
-        setMessageType('success');
-      } catch {
-        setMessage('Failed to add store');
-        setMessageType('error');
-      } finally {
-        setLoading(false);
-      }
+  const handleAddStore = async () => {
+    if (!formData.name.trim() || !formData.email.trim()) {
+      setMessage('Name and Email are required');
+      setMessageType('error');
+      return;
+    }
+    setLoading(true);
+    try {
+      await createStore(formData);
+      setMessage('Store added successfully!');
+      setMessageType('success');
+      setShowAddModal(false);
+      setFormData({ name: '', address: '', phone: '', email: '', tax_rate: '', currency: 'USD', timezone: 'UTC' });
+      fetchStores();
+    } catch (err) {
+      setMessage('Failed to add store');
+      setMessageType('error');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleEditStore = () => {
-    if (editingStore && formData.name.trim()) {
-      setLoading(true);
-      try {
-        setStores(stores.map(store =>
-          store.id === editingStore.id
-            ? { ...formData, id: store.id, tax_rate: formData.tax_rate ? Number(formData.tax_rate) : 0 }
-            : store
-        ));
-        setEditingStore(null);
-        setFormData({ name: '', address: '', phone: '', email: '', tax_rate: '', currency: 'USD', timezone: 'UTC' });
-        setMessage('Store updated successfully!');
-        setMessageType('success');
-      } catch {
-        setMessage('Failed to update store');
-        setMessageType('error');
-      } finally {
-        setLoading(false);
-      }
+  const handleEditStore = async () => {
+    if (!formData.name.trim() || !formData.email.trim()) {
+      setMessage('Name and Email are required');
+      setMessageType('error');
+      return;
+    }
+    setLoading(true);
+    try {
+      await updateStore(editingStore.id, formData);
+      setMessage('Store updated successfully!');
+      setMessageType('success');
+      setEditingStore(null);
+      setFormData({ name: '', address: '', phone: '', email: '', tax_rate: '', currency: 'USD', timezone: 'UTC' });
+      fetchStores();
+    } catch (err) {
+      setMessage('Failed to update store');
+      setMessageType('error');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleDeleteStore = (id) => {
+  const handleDeleteStore = async (id) => {
     if (window.confirm('Are you sure you want to delete this store?')) {
       setLoading(true);
       try {
-        setStores(stores.filter(store => store.id !== id));
+        await deleteStore(id);
         setMessage('Store deleted successfully!');
         setMessageType('success');
-      } catch {
+        fetchStores();
+      } catch (err) {
         setMessage('Failed to delete store');
         setMessageType('error');
       } finally {
