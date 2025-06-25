@@ -1,307 +1,551 @@
 import React, { useState, useEffect } from 'react';
+import { getProducts } from '../services/productService';
+import { getUsers } from '../services/userService';
+import { getStores } from '../services/storeService';
+import { getCustomers } from '../services/customerService';
 
 function SaleItems() {
-  // Sample sale items data (replace with API later)
-  const [saleItems, setSaleItems] = useState([
-    {
-      id: 1,
-      product_name: 'Lavender Dreams Perfume',
-      quantity: 2,
-      unit_price: 49.99,
-      total_price: 99.98,
-      discount_amount: 5.00,
-    },
-    {
-      id: 2,
-      product_name: 'Classic White Shirt',
-      quantity: 1,
-      unit_price: 29.99,
-      total_price: 29.99,
-      discount_amount: 0.00,
-    },
-  ]);
-
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
-  const [formData, setFormData] = useState({
-    product_name: '',
-    quantity: '',
-    unit_price: '',
-    discount_amount: '',
+  // Master (sale) state
+  const [sale, setSale] = useState({
+    sale_number: '',
+    customer_id: '',
+    user_id: '',
+    store_id: '',
+    subtotal: 0,
+    tax_amount: 0,
+    discount_amount: 0,
+    total_amount: 0,
+    payment_method: 'cash',
+    payment_status: 'completed',
+    notes: '',
+    loyalty_points_earned: 0,
+    loyalty_points_redeemed: 0,
+    sale_date: '',
   });
+
+  // Detail (items) state
+  const [items, setItems] = useState([]);
+  const [itemForm, setItemForm] = useState({
+    product_id: '',
+    product_name: '',
+    quantity: 1,
+    unit_price: 0,
+    discount_amount: 0,
+    product_sku: '',
+    product_barcode: '',
+  });
+  const [editingItemId, setEditingItemId] = useState(null);
+
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState(''); // 'success' or 'error'
   const [loading, setLoading] = useState(false);
+  const [products, setProducts] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [stores, setStores] = useState([]);
+  const [sales, setSales] = useState([]); // All sales for Read
+  const [editingSaleId, setEditingSaleId] = useState(null); // For Update
+  const [customers, setCustomers] = useState([]);
 
   useEffect(() => {
-    if (message) {
-      const timer = setTimeout(() => setMessage(''), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [message]);
+    getProducts().then(setProducts).catch(() => setProducts([]));
+    getUsers().then(setUsers).catch(() => setUsers([]));
+    getStores().then(setStores).catch(() => setStores([]));
+    getCustomers().then(setCustomers).catch(() => setCustomers([]));
+    fetchSales();
+  }, []);
 
-  const handleAddItem = () => {
-    if (formData.product_name.trim() && formData.quantity && formData.unit_price) {
-      setLoading(true);
-      try {
-        const newItem = {
-          ...formData,
-          id: Date.now(),
-          quantity: Number(formData.quantity),
-          unit_price: Number(formData.unit_price),
-          discount_amount: formData.discount_amount ? Number(formData.discount_amount) : 0,
-          total_price: Number(formData.quantity) * Number(formData.unit_price) - (formData.discount_amount ? Number(formData.discount_amount) : 0),
-        };
-        setSaleItems([...saleItems, newItem]);
-        setFormData({ product_name: '', quantity: '', unit_price: '', discount_amount: '' });
-        setShowAddModal(false);
-        setMessage('Sale item added successfully!');
-        setMessageType('success');
+  // Fetch all sales (Read)
+  const fetchSales = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/sales');
+      if (!res.ok) throw new Error('Failed to fetch sales');
+      const data = await res.json();
+      setSales(data);
       } catch {
-        setMessage('Failed to add sale item');
-        setMessageType('error');
-      } finally {
-        setLoading(false);
-      }
+      setSales([]);
     }
   };
 
-  const handleEditItem = () => {
-    if (editingItem && formData.product_name.trim() && formData.quantity && formData.unit_price) {
-      setLoading(true);
-      try {
-        setSaleItems(saleItems.map(item =>
-          item.id === editingItem.id
-            ? {
-                ...formData,
-                id: item.id,
-                quantity: Number(formData.quantity),
-                unit_price: Number(formData.unit_price),
-                discount_amount: formData.discount_amount ? Number(formData.discount_amount) : 0,
-                total_price: Number(formData.quantity) * Number(formData.unit_price) - (formData.discount_amount ? Number(formData.discount_amount) : 0),
-              }
-            : item
+  // Example AI insights data
+  const aiInsights = [
+    { name: 'Iphone 12', current: 5, reorder: 20 },
+    { name: 'HP', current: 3, reorder: 15 }
+  ];
+
+  // Add or update item in detail list
+  const addOrUpdateItem = () => {
+    if (!itemForm.product_id || !itemForm.quantity || !itemForm.unit_price) {
+      setMessage('Please fill all required item fields.');
+      setMessageType('error');
+      return;
+    }
+    // Find the selected product
+    const selectedProduct = products.find(p => p.id === itemForm.product_id);
+    const stock = selectedProduct ? Number(selectedProduct.current_stock) : 0;
+    if (Number(itemForm.quantity) > stock) {
+      setMessage('You selected more than what we have in stock');
+      setMessageType('error');
+      return;
+    }
+    // Ensure numeric fields are numbers
+    const newItem = {
+      ...itemForm,
+      quantity: Number(itemForm.quantity),
+      unit_price: Number(itemForm.unit_price),
+      discount_amount: Number(itemForm.discount_amount) || 0,
+    };
+    if (editingItemId) {
+      setItems(items.map(item => item.id === editingItemId ? { ...newItem, id: editingItemId } : item));
+      setEditingItemId(null);
+    } else {
+      // Prevent duplicate products: sum quantities if exists
+      const existing = items.find(i => i.product_id === newItem.product_id);
+      if (existing) {
+        setItems(items.map(i =>
+          i.product_id === newItem.product_id
+            ? { ...i, quantity: i.quantity + newItem.quantity }
+            : i
         ));
-        setEditingItem(null);
-        setFormData({ product_name: '', quantity: '', unit_price: '', discount_amount: '' });
-        setMessage('Sale item updated successfully!');
-        setMessageType('success');
-      } catch {
-        setMessage('Failed to update sale item');
-        setMessageType('error');
-      } finally {
-        setLoading(false);
+      } else {
+        setItems([...items, { ...newItem, id: Date.now() }]);
       }
     }
-  };
-
-  const handleDeleteItem = (id) => {
-    if (window.confirm('Are you sure you want to delete this sale item?')) {
-      setLoading(true);
-      try {
-        setSaleItems(saleItems.filter(item => item.id !== id));
-        setMessage('Sale item deleted successfully!');
-        setMessageType('success');
-      } catch {
-        setMessage('Failed to delete sale item');
-        setMessageType('error');
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-
-  const openEditModal = (item) => {
-    setEditingItem(item);
-    setFormData({
-      product_name: item.product_name,
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      discount_amount: item.discount_amount,
+    setItemForm({
+      product_id: '',
+      product_name: '',
+      quantity: 1,
+      unit_price: 0,
+      discount_amount: 0,
+      product_sku: '',
+      product_barcode: '',
     });
   };
 
-  const closeModal = () => {
-    setShowAddModal(false);
-    setEditingItem(null);
-    setFormData({ product_name: '', quantity: '', unit_price: '', discount_amount: '' });
+  // Remove item from detail list
+  const removeItem = (id) => {
+    setItems(items.filter(item => item.id !== id));
+    setEditingItemId(null);
+    setItemForm({
+      product_id: '',
+      product_name: '',
+      quantity: 1,
+      unit_price: 0,
+      discount_amount: 0,
+      product_sku: '',
+      product_barcode: '',
+    });
   };
+
+  // Edit item in detail list
+  const editItem = (item) => {
+    setEditingItemId(item.id);
+    setItemForm({ ...item });
+  };
+
+  // Cancel editing sale
+  const handleCancel = () => {
+    setEditingSaleId(null);
+    setSale({
+      sale_number: '',
+      customer_id: '',
+      user_id: '',
+      store_id: '',
+      subtotal: 0,
+      tax_amount: 0,
+      discount_amount: 0,
+      total_amount: 0,
+      payment_method: 'cash',
+      payment_status: 'completed',
+      notes: '',
+      loyalty_points_earned: 0,
+      loyalty_points_redeemed: 0,
+      sale_date: '',
+    });
+    setItems([]);
+    setItemForm({
+      product_id: '',
+      product_name: '',
+      quantity: 1,
+      unit_price: 0,
+      discount_amount: 0,
+      product_sku: '',
+      product_barcode: '',
+    });
+    setEditingItemId(null);
+  };
+
+  // Handle master form change
+  const handleSaleChange = (e) => {
+    setSale({ ...sale, [e.target.name]: e.target.value });
+  };
+
+  // Handle detail form change
+  const handleItemChange = (e) => {
+    setItemForm({ ...itemForm, [e.target.name]: e.target.value });
+  };
+
+  // Delete a sale
+  const handleDeleteSale = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this sale?')) return;
+      setLoading(true);
+      try {
+      const res = await fetch(`http://localhost:5000/api/sales/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete sale');
+      setMessage('Sale deleted successfully!');
+        setMessageType('success');
+      fetchSales();
+      } catch {
+      setMessage('Failed to delete sale.');
+        setMessageType('error');
+      } finally {
+        setLoading(false);
+      setTimeout(() => setMessage(''), 3000);
+    }
+  };
+
+  // Edit a sale (load into form)
+  const handleEditSale = (saleObj) => {
+    setEditingSaleId(saleObj.id);
+    setSale({
+      sale_number: saleObj.sale_number || '',
+      customer_id: saleObj.customer_id || '',
+      user_id: saleObj.user_id || '',
+      store_id: saleObj.store_id || '',
+      subtotal: saleObj.subtotal || 0,
+      tax_amount: saleObj.tax_amount || 0,
+      discount_amount: saleObj.discount_amount || 0,
+      total_amount: saleObj.total_amount || 0,
+      payment_method: saleObj.payment_method || 'cash',
+      payment_status: saleObj.payment_status || 'completed',
+      notes: saleObj.notes || '',
+      loyalty_points_earned: saleObj.loyalty_points_earned || 0,
+      loyalty_points_redeemed: saleObj.loyalty_points_redeemed || 0,
+      sale_date: saleObj.sale_date ? saleObj.sale_date.slice(0, 16) : '',
+    });
+    setItems(saleObj.items || []);
+    setItemForm({
+      product_id: '',
+      product_name: '',
+      quantity: 1,
+      unit_price: 0,
+      discount_amount: 0,
+      product_sku: '',
+      product_barcode: '',
+    });
+    setEditingItemId(null);
+  };
+
+  // Add or update sale (Create/Update)
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    // Validate required fields
+    if (!sale.sale_number || !sale.customer_id || !sale.user_id || !sale.store_id) {
+      setMessage('Please fill all required sale fields.');
+      setMessageType('error');
+      return;
+    }
+    if (items.length === 0) {
+      setMessage('Please add at least one sale item.');
+      setMessageType('error');
+      return;
+    }
+    setLoading(true);
+    // Calculate totals
+    const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
+    const total_discount = items.reduce((sum, item) => sum + Number(item.discount_amount || 0), 0);
+    const total_amount = subtotal + Number(sale.tax_amount) - total_discount;
+    // Default sale_date to now if not set
+    const sale_date = sale.sale_date || new Date().toISOString().slice(0, 16);
+    const saleData = {
+      sale: {
+        ...sale,
+        subtotal,
+        discount_amount: total_discount,
+        total_amount,
+        sale_date,
+      },
+      items: items.map(({ id, ...rest }) => rest),
+    };
+    try {
+      let response;
+      if (editingSaleId) {
+        response = await fetch(`http://localhost:5000/api/sales/${editingSaleId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(saleData),
+        });
+      } else {
+        response = await fetch('http://localhost:5000/api/sales', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(saleData),
+        });
+      }
+      const result = await response.json();
+      if (!response.ok) {
+        // Show inventory warning if insufficient stock
+        if (result.error && result.error.toLowerCase().includes('insufficient stock')) {
+          setMessage(result.error);
+          setMessageType('error');
+          return;
+        }
+        throw new Error(result.error || result.details || 'Failed to submit sale.');
+      }
+      setMessage(editingSaleId ? 'Sale updated successfully!' : 'Sale submitted successfully!');
+      setMessageType('success');
+      handleCancel();
+      fetchSales();
+    } catch (err) {
+      setMessage(err.message || 'Failed to submit sale.');
+      setMessageType('error');
+    } finally {
+      setLoading(false);
+      setTimeout(() => setMessage(''), 3000);
+    }
+  };
+
+  // Live calculation
+  const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
+  const total_discount = items.reduce((sum, item) => sum + Number(item.discount_amount || 0), 0);
+  const total_amount = subtotal + Number(sale.tax_amount) - total_discount;
 
   return (
     <div className="flex flex-col w-full min-h-screen space-y-4 sm:space-y-6">
-      {/* Feedback Message */}
-      {message && (
-        <div className={`mb-4 p-3 rounded ${messageType === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+      {/* Full-screen error alert banner */}
+      {message && messageType === 'error' && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', zIndex: 1000 }}>
+          <div className="w-full bg-red-600 text-white text-center py-4 text-lg font-bold shadow-lg">
+            {message}
+          </div>
+        </div>
+      )}
+      {/* Feedback Message (success or non-error) */}
+      {message && messageType === 'success' && (
+        <div className="mb-4 p-3 rounded bg-green-100 text-green-800">
           {message}
         </div>
       )}
       {/* Header */}
       <div className="bg-white rounded-xl shadow p-4 sm:p-6 w-full">
         <div className="flex flex-col sm:flex-row items-center justify-between mb-4 sm:mb-6 gap-2 sm:gap-0">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Sale Items Management</h1>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2"
-          >
-            <span>➕</span>
-            Add Sale Item
-          </button>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Sales Management</h1>
         </div>
         <p className="text-gray-600 text-sm sm:text-base">
-          Manage sale items and their details.
+          Manage your sales and sale items efficiently. Use the AI panel below for smart recommendations.
         </p>
       </div>
-      {/* Sale Items List - Table for sm+ */}
+      {/* AI Insights Panel */}
+      <div className="bg-red-50 border border-red-200 rounded-xl p-4 sm:p-6 mb-4">
+        <div className="flex items-center mb-2">
+          <span className="text-red-500 text-xl mr-2">🤖</span>
+          <span className="font-semibold text-red-700 text-base">AI Sales Insights</span>
+        </div>
+        <div className="text-red-700 text-sm mb-3">
+          {aiInsights.length} products are low in stock based on AI demand forecasting.
+        </div>
+        <div className="space-y-3">
+          {aiInsights.map((alert, idx) => (
+            <div key={idx} className="bg-white border border-red-200 rounded-lg p-3">
+              <div className="font-semibold text-gray-800">{alert.name}</div>
+              <div className="text-gray-600 text-xs">Current: {alert.current} units</div>
+              <div className="text-red-600 text-xs font-medium">AI Reorder Suggestion: {alert.reorder} units</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Sales Table (Read) */}
       <div className="bg-white rounded-xl shadow p-4 sm:p-6 w-full">
-        <div className="overflow-x-auto hidden sm:block">
+        <h2 className="text-lg font-bold mb-4">All Sales</h2>
+        <div className="overflow-x-auto">
           <table className="min-w-full text-xs sm:text-sm">
             <thead>
               <tr className="text-left text-gray-500 border-b">
-                <th className="py-3 px-3 font-semibold">Product Name</th>
-                <th className="py-3 px-3 font-semibold">Quantity</th>
-                <th className="py-3 px-3 font-semibold">Unit Price</th>
-                <th className="py-3 px-3 font-semibold">Total Price</th>
-                <th className="py-3 px-3 font-semibold">Discount</th>
-                <th className="py-3 px-3 font-semibold">Actions</th>
+                <th className="py-2 px-2 font-semibold">Sale #</th>
+                <th className="py-2 px-2 font-semibold">Product Name(s)</th>
+                <th className="py-2 px-2 font-semibold">Quantity</th>
+                <th className="py-2 px-2 font-semibold">Unit Price</th>
+                <th className="py-2 px-2 font-semibold">Total Amount</th>
+                <th className="py-2 px-2 font-semibold">Date</th>
+                <th className="py-2 px-2 font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {saleItems.map((item) => (
-                <tr key={item.id} className="border-b hover:bg-gray-50">
-                  <td className="py-3 px-3 font-medium">{item.product_name}</td>
-                  <td className="py-3 px-3">{item.quantity}</td>
-                  <td className="py-3 px-3">${item.unit_price != null ? Number(item.unit_price).toFixed(2) : '-'}</td>
-                  <td className="py-3 px-3">${item.total_price != null ? Number(item.total_price).toFixed(2) : '-'}</td>
-                  <td className="py-3 px-3">${item.discount_amount != null ? Number(item.discount_amount).toFixed(2) : '-'}</td>
-                  <td className="py-3 px-3">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => openEditModal(item)}
-                        className="text-blue-600 hover:text-blue-800 p-1"
-                        title="Edit"
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        onClick={() => handleDeleteItem(item.id)}
-                        className="text-red-600 hover:text-red-800 p-1"
-                        title="Delete"
-                      >
-                        🗑️
-                      </button>
-                    </div>
+              {sales.map(sale => {
+                const items = sale.items || [];
+                const productNames = items.map(i => i.product_name).join(', ');
+                const totalQty = items.reduce((sum, i) => sum + Number(i.quantity), 0);
+                const unitPrices = items.map(i => Number(i.unit_price).toFixed(2)).join(', ');
+                return (
+                  <tr key={sale.id} className="border-b hover:bg-gray-50">
+                    <td className="py-2 px-2">{sale.sale_number}</td>
+                    <td className="py-2 px-2">{productNames}</td>
+                    <td className="py-2 px-2">{totalQty}</td>
+                    <td className="py-2 px-2">{unitPrices}</td>
+                    <td className="py-2 px-2">${sale.total_amount}</td>
+                    <td className="py-2 px-2">{sale.sale_date ? sale.sale_date.slice(0, 10) : ''}</td>
+                    <td className="py-2 px-2">
+                      <button onClick={() => handleEditSale(sale)} className="text-blue-600 hover:text-blue-800 p-1 mr-2">Edit</button>
+                      <button onClick={() => handleDeleteSale(sale.id)} className="text-red-600 hover:text-red-800 p-1">Delete</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {/* Master-Detail Form */}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Master Section */}
+        <div className="bg-white p-4 rounded shadow">
+          <h2 className="font-bold text-lg mb-2">Sale Information</h2>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Sale Number *</label>
+              <input name="sale_number" value={sale.sale_number} onChange={handleSaleChange} placeholder="Sale Number" className="border p-2 rounded w-full" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Customer *</label>
+              <select name="customer_id" value={sale.customer_id} onChange={handleSaleChange} className="border p-2 rounded w-full">
+                <option value="">Select Customer</option>
+                {customers.map(customer => (
+                  <option key={customer.id} value={customer.id}>
+                    {customer.first_name} {customer.last_name} ({customer.customer_code})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">User *</label>
+              <select name="user_id" value={sale.user_id} onChange={handleSaleChange} className="border p-2 rounded w-full">
+                <option value="">Select User</option>
+                {users.map(user => (
+                  <option key={user.id} value={user.id}>{user.name || user.username || user.email}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Store *</label>
+              <select name="store_id" value={sale.store_id} onChange={handleSaleChange} className="border p-2 rounded w-full">
+                <option value="">Select Store</option>
+                {stores.map(store => (
+                  <option key={store.id} value={store.id}>{store.name || store.store_name || store.id}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Sale Date *</label>
+              <input name="sale_date" value={sale.sale_date} onChange={handleSaleChange} placeholder="Sale Date" type="datetime-local" className="border p-2 rounded w-full" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+              <select name="payment_method" value={sale.payment_method} onChange={handleSaleChange} className="border p-2 rounded w-full">
+                <option value="cash">Cash</option>
+                <option value="card">Card</option>
+                <option value="digital">Digital</option>
+                <option value="gift_card">Gift Card</option>
+                <option value="store_credit">Store Credit</option>
+              </select>
+            </div>
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+              <input name="notes" value={sale.notes} onChange={handleSaleChange} placeholder="Notes" className="border p-2 rounded w-full" />
+            </div>
+          </div>
+          {/* Live calculation display */}
+          <div className="mt-4 grid grid-cols-3 gap-4">
+            <div className="text-gray-700">Subtotal: <span className="font-semibold">${subtotal.toFixed(2)}</span></div>
+            <div className="text-gray-700">Discount: <span className="font-semibold">${total_discount.toFixed(2)}</span></div>
+            <div className="text-gray-700">Total: <span className="font-semibold">${total_amount.toFixed(2)}</span></div>
+          </div>
+        </div>
+        {/* Detail Section */}
+        <div className="bg-white p-4 rounded shadow">
+          <h2 className="font-bold text-lg mb-2">Sale Items</h2>
+          <div className="grid grid-cols-6 gap-2 mb-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Product *</label>
+              <select
+                name="product_id"
+                value={itemForm.product_id}
+                onChange={e => {
+                  const selected = products.find(p => p.id === e.target.value);
+                  setItemForm({
+                    ...itemForm,
+                    product_id: e.target.value,
+                    product_name: selected ? selected.name : '',
+                    product_sku: selected ? selected.sku : '',
+                    product_barcode: selected ? selected.barcode : '',
+                    unit_price: selected ? selected.selling_price : 0,
+                  });
+                }}
+                className="border p-2 rounded w-full"
+              >
+                <option value="">Select Product</option>
+                {products.map(product => (
+                  <option key={product.id} value={product.id}>{product.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
+              <input name="quantity" type="number" value={itemForm.quantity} onChange={handleItemChange} placeholder="Qty" className="border p-2 rounded w-full" min="1" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Unit Price *</label>
+              <input name="unit_price" type="number" value={itemForm.unit_price} onChange={handleItemChange} placeholder="Unit Price" className="border p-2 rounded w-full" min="0" step="0.01" readOnly />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Discount</label>
+              <input name="discount_amount" type="number" value={itemForm.discount_amount} onChange={handleItemChange} placeholder="Discount" className="border p-2 rounded w-full" min="0" step="0.01" />
+            </div>
+            <div className="flex items-end">
+              <button type="button" onClick={addOrUpdateItem} className="bg-green-500 text-white rounded px-2 w-full">
+                {editingItemId ? 'Update' : 'Add'}
+              </button>
+            </div>
+            <div className="flex items-end">
+              {editingItemId && (
+                <button type="button" onClick={() => { setEditingItemId(null); setItemForm({ product_id: '', product_name: '', quantity: 1, unit_price: 0, discount_amount: 0, product_sku: '', product_barcode: '' }); }} className="bg-gray-400 text-white rounded px-2 w-full">Cancel</button>
+              )}
+            </div>
+          </div>
+          <table className="min-w-full text-xs sm:text-sm">
+            <thead>
+              <tr>
+                <th>Product ID</th>
+                <th>Name</th>
+                <th>Qty</th>
+                <th>Unit Price</th>
+                <th>Discount</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map(item => (
+                <tr key={item.id}>
+                  <td>{item.product_id}</td>
+                  <td>{item.product_name}</td>
+                  <td>{item.quantity}</td>
+                  <td>{item.unit_price}</td>
+                  <td>{item.discount_amount}</td>
+                  <td>
+                    <button type="button" onClick={() => editItem(item)} className="text-blue-500 mr-2">Edit</button>
+                    <button type="button" onClick={() => removeItem(item.id)} className="text-red-500">Remove</button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        {/* Card layout for mobile */}
-        <div className="block sm:hidden space-y-4">
-          {saleItems.map((item) => (
-            <div key={item.id} className="border rounded-xl p-4 shadow-sm bg-white">
-              <div className="font-semibold text-lg text-gray-800 mb-1">{item.product_name}</div>
-              <div className="text-gray-600 text-sm mb-1">Quantity: {item.quantity}</div>
-              <div className="text-gray-600 text-sm mb-1">Unit Price: ${item.unit_price != null ? Number(item.unit_price).toFixed(2) : '-'}</div>
-              <div className="text-gray-600 text-sm mb-1">Total Price: ${item.total_price != null ? Number(item.total_price).toFixed(2) : '-'}</div>
-              <div className="text-gray-600 text-sm mb-1">Discount: ${item.discount_amount != null ? Number(item.discount_amount).toFixed(2) : '-'}</div>
-              <div className="flex gap-3 mt-2">
-                <button
-                  onClick={() => openEditModal(item)}
-                  className="flex-1 bg-blue-100 text-blue-700 py-1 rounded-lg font-medium text-xs hover:bg-blue-200 transition"
-                >
-                  ✏️ Edit
-                </button>
-                <button
-                  onClick={() => handleDeleteItem(item.id)}
-                  className="flex-1 bg-red-100 text-red-700 py-1 rounded-lg font-medium text-xs hover:bg-red-200 transition"
-                >
-                  🗑️ Delete
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      {/* Add/Edit Modal */}
-      {(showAddModal || editingItem) && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">
-              {editingItem ? 'Edit Sale Item' : 'Add New Sale Item'}
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Product Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.product_name}
-                  onChange={(e) => setFormData({...formData, product_name: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  placeholder="Enter product name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Quantity *
-                </label>
-                <input
-                  type="number"
-                  value={formData.quantity}
-                  onChange={(e) => setFormData({...formData, quantity: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  placeholder="Enter quantity"
-                  min="1"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Unit Price *
-                </label>
-                <input
-                  type="number"
-                  value={formData.unit_price}
-                  onChange={(e) => setFormData({...formData, unit_price: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  placeholder="Enter unit price"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Discount
-                </label>
-                <input
-                  type="number"
-                  value={formData.discount_amount}
-                  onChange={(e) => setFormData({...formData, discount_amount: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  placeholder="Enter discount amount"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-            </div>
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={editingItem ? handleEditItem : handleAddItem}
-                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg font-medium transition"
-              >
-                {editingItem ? 'Update Sale Item' : 'Add Sale Item'}
-              </button>
-              <button
-                onClick={closeModal}
-                className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 py-2 rounded-lg font-medium transition"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
+        {/* Submit/Cancel */}
+        <div className="flex gap-4">
+          <button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded" disabled={loading}>{loading ? 'Submitting...' : (editingSaleId ? 'Update Sale' : 'Submit Sale')}</button>
+          {(editingSaleId || items.length > 0) && (
+            <button type="button" onClick={handleCancel} className="bg-gray-400 text-white px-4 py-2 rounded" disabled={loading}>Cancel</button>
       )}
+        </div>
+      </form>
     </div>
   );
 }

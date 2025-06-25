@@ -1,9 +1,14 @@
 const pool = require('../config/db');
 
-// Get all sales
+// Get all sales (with items)
 async function getAllSales() {
-  const result = await pool.query('SELECT * FROM sales ORDER BY created_at DESC');
-  return result.rows;
+  const salesResult = await pool.query('SELECT * FROM sales ORDER BY created_at DESC');
+  const sales = salesResult.rows;
+  for (const sale of sales) {
+    const itemsResult = await pool.query('SELECT * FROM sale_items WHERE sale_id = $1', [sale.id]);
+    sale.items = itemsResult.rows;
+  }
+  return sales;
 }
 
 // Get a sale by ID
@@ -100,7 +105,7 @@ async function createSaleWithItems(saleData, items) {
       ]
     );
     const sale = saleResult.rows[0];
-    // Insert sale items
+    // Insert sale items and update product stock
     for (const item of items) {
       await client.query(
         `INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, discount_amount, product_name, product_sku, product_barcode)
@@ -110,7 +115,27 @@ async function createSaleWithItems(saleData, items) {
           item.product_name, item.product_sku, item.product_barcode
         ]
       );
+      // Check current stock before updating
+      const stockRes = await client.query(
+        `SELECT current_stock, name FROM products WHERE id = $1`,
+        [item.product_id]
+      );
+      const currentStock = stockRes.rows[0]?.current_stock ?? 0;
+      const productName = stockRes.rows[0]?.name || item.product_id;
+      if (currentStock - item.quantity < 0) {
+        throw new Error(`Insufficient stock for product: ${productName}`);
+      }
+      // Update product stock
+      await client.query(
+        `UPDATE products SET current_stock = current_stock - $1 WHERE id = $2`,
+        [item.quantity, item.product_id]
+      );
     }
+    // After inserting sale and sale items, update customer's total_spent
+    await client.query(
+      `UPDATE customers SET total_spent = total_spent + $1 WHERE id = $2`,
+      [sale.total_amount, sale.customer_id]
+    );
     await client.query('COMMIT');
     return sale;
   } catch (err) {

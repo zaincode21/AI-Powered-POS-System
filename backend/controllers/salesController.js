@@ -70,15 +70,35 @@ async function getSaleWithItems(req, res) {
 
 // Create a sale and its items in one request
 async function createSaleWithItems(req, res) {
-  try {
-    const { sale, items } = req.body;
-    if (!sale || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ error: 'Sale and items are required' });
+  const { sale, items } = req.body;
+  // Validate sale object
+  const requiredFields = ['sale_number', 'customer_id', 'user_id', 'store_id', 'total_amount', 'payment_method'];
+  for (const field of requiredFields) {
+    if (!sale[field]) {
+      return res.status(400).json({ error: `Missing required field: ${field}` });
     }
-    // Optionally, add more validation here (e.g., check required sale/item fields)
+  }
+  // Validate items
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'At least one sale item is required' });
+  }
+  for (const item of items) {
+    if (!item.product_id || !item.quantity || !item.unit_price) {
+      return res.status(400).json({ error: 'Each item must have product_id, quantity, and unit_price' });
+    }
+  }
+  try {
     const createdSale = await salesModel.createSaleWithItems(sale, items);
     res.status(201).json(createdSale);
   } catch (err) {
+    // Unique violation
+    if (err.code === '23505') {
+      return res.status(400).json({ error: 'Duplicate sale_number or unique constraint violation' });
+    }
+    // Foreign key violation
+    if (err.code === '23503') {
+      return res.status(400).json({ error: 'Invalid foreign key: referenced ID does not exist' });
+    }
     res.status(500).json({ error: 'Failed to create sale with items', details: err.message });
   }
 }

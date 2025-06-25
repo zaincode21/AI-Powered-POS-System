@@ -1,36 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import {
+  getCustomers,
+  createCustomer,
+  updateCustomer,
+  deleteCustomer
+} from '../services/customerService';
 
 function Customers() {
-  // Sample customers data
-  const [customers, setCustomers] = useState([
-    {
-      id: 1,
-      customer_code: 'CUST001',
-      first_name: 'John',
-      last_name: 'Doe',
-      email: 'john.doe@example.com',
-      phone: '123-456-7890',
-      gender: 'Male',
-      city: 'New York',
-      total_purchases: 5,
-      total_spent: 250.00,
-      is_active: true
-    },
-    {
-      id: 2,
-      customer_code: 'CUST002',
-      first_name: 'Jane',
-      last_name: 'Smith',
-      email: 'jane.smith@example.com',
-      phone: '987-654-3210',
-      gender: 'Female',
-      city: 'Los Angeles',
-      total_purchases: 3,
-      total_spent: 120.00,
-      is_active: false
-    }
-  ]);
-
+  const [customers, setCustomers] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [formData, setFormData] = useState({
@@ -45,6 +22,96 @@ function Customers() {
     total_spent: 0,
     is_active: true
   });
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState('');
+
+  // Fetch all customers on mount
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
+
+  const fetchCustomers = async () => {
+    setLoading(true);
+    try {
+      const data = await getCustomers();
+      setCustomers(data);
+    } catch (err) {
+      setMessage('Failed to fetch customers');
+      setMessageType('error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddCustomer = async () => {
+    if (formData.customer_code && formData.first_name && formData.last_name && formData.email) {
+      setLoading(true);
+      try {
+        await createCustomer(formData);
+        setMessage('Customer added successfully!');
+        setMessageType('success');
+        fetchCustomers();
+        setFormData({ customer_code: '', first_name: '', last_name: '', email: '', phone: '', gender: '', city: '', total_purchases: 0, total_spent: 0, is_active: true });
+        setShowAddModal(false);
+      } catch (err) {
+        setMessage('Failed to add customer');
+        setMessageType('error');
+      } finally {
+        setLoading(false);
+        setTimeout(() => setMessage(''), 3000);
+      }
+    }
+  };
+
+  const handleEditCustomer = async () => {
+    if (editingCustomer && formData.customer_code && formData.first_name && formData.last_name && formData.email) {
+      setLoading(true);
+      try {
+        await updateCustomer(editingCustomer.id, formData);
+        setMessage('Customer updated successfully!');
+        setMessageType('success');
+        fetchCustomers();
+        setEditingCustomer(null);
+        setFormData({ customer_code: '', first_name: '', last_name: '', email: '', phone: '', gender: '', city: '', total_purchases: 0, total_spent: 0, is_active: true });
+      } catch (err) {
+        setMessage('Failed to update customer');
+        setMessageType('error');
+      } finally {
+        setLoading(false);
+        setTimeout(() => setMessage(''), 3000);
+      }
+    }
+  };
+
+  const handleDeleteCustomer = async (id) => {
+    if (window.confirm('Are you sure you want to delete this customer?')) {
+      setLoading(true);
+      try {
+        await deleteCustomer(id);
+        setMessage('Customer deleted successfully!');
+        setMessageType('success');
+        fetchCustomers();
+      } catch (err) {
+        setMessage('Failed to delete customer');
+        setMessageType('error');
+      } finally {
+        setLoading(false);
+        setTimeout(() => setMessage(''), 3000);
+      }
+    }
+  };
+
+  const openEditModal = (customer) => {
+    setEditingCustomer(customer);
+    setFormData({ ...customer });
+  };
+
+  const closeModal = () => {
+    setShowAddModal(false);
+    setEditingCustomer(null);
+    setFormData({ customer_code: '', first_name: '', last_name: '', email: '', phone: '', gender: '', city: '', total_purchases: 0, total_spent: 0, is_active: true });
+  };
 
   // Example AI reorder alerts data
   const reorderAlerts = [
@@ -60,52 +127,14 @@ function Customers() {
     }
   ];
 
-  const handleAddCustomer = () => {
-    if (formData.customer_code && formData.first_name && formData.last_name && formData.email) {
-      const newCustomer = {
-        ...formData,
-        id: Date.now(),
-        total_purchases: Number(formData.total_purchases),
-        total_spent: Number(formData.total_spent),
-        is_active: Boolean(formData.is_active)
-      };
-      setCustomers([...customers, newCustomer]);
-      setFormData({ customer_code: '', first_name: '', last_name: '', email: '', phone: '', gender: '', city: '', total_purchases: 0, total_spent: 0, is_active: true });
-      setShowAddModal(false);
-    }
-  };
-
-  const handleEditCustomer = () => {
-    if (editingCustomer && formData.customer_code && formData.first_name && formData.last_name && formData.email) {
-      setCustomers(customers.map(cust => 
-        cust.id === editingCustomer.id 
-          ? { ...formData, id: cust.id, total_purchases: Number(formData.total_purchases), total_spent: Number(formData.total_spent), is_active: Boolean(formData.is_active) }
-          : cust
-      ));
-      setEditingCustomer(null);
-      setFormData({ customer_code: '', first_name: '', last_name: '', email: '', phone: '', gender: '', city: '', total_purchases: 0, total_spent: 0, is_active: true });
-    }
-  };
-
-  const handleDeleteCustomer = (id) => {
-    if (window.confirm('Are you sure you want to delete this customer?')) {
-      setCustomers(customers.filter(cust => cust.id !== id));
-    }
-  };
-
-  const openEditModal = (customer) => {
-    setEditingCustomer(customer);
-    setFormData({ ...customer });
-  };
-
-  const closeModal = () => {
-    setShowAddModal(false);
-    setEditingCustomer(null);
-    setFormData({ customer_code: '', first_name: '', last_name: '', email: '', phone: '', gender: '', city: '', total_purchases: 0, total_spent: 0, is_active: true });
-  };
-
   return (
     <div className="flex flex-col w-full min-h-screen space-y-4 sm:space-y-6">
+      {/* Feedback Message */}
+      {message && (
+        <div className={`mb-4 p-3 rounded ${messageType === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+          {message}
+        </div>
+      )}
       {/* Header */}
       <div className="bg-white rounded-xl shadow p-4 sm:p-6 w-full">
         <div className="flex flex-col sm:flex-row items-center justify-between mb-4 sm:mb-6 gap-2 sm:gap-0">
@@ -145,6 +174,9 @@ function Customers() {
 
       {/* Customers List - Table for sm+ */}
       <div className="bg-white rounded-xl shadow p-4 sm:p-6 w-full">
+        {loading ? (
+          <div className="text-center text-gray-500">Loading...</div>
+        ) : (
         <div className="overflow-x-auto hidden sm:block">
           <table className="min-w-full text-xs sm:text-sm">
             <thead>
@@ -173,7 +205,7 @@ function Customers() {
                   <td className="py-3 px-3">{customer.gender}</td>
                   <td className="py-3 px-3">{customer.city}</td>
                   <td className="py-3 px-3">{customer.total_purchases}</td>
-                  <td className="py-3 px-3">${customer.total_spent.toFixed(2)}</td>
+                  <td className="py-3 px-3">${Number(customer.total_spent).toFixed(2)}</td>
                   <td className="py-3 px-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${customer.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>{customer.is_active ? 'Active' : 'Inactive'}</span>
                   </td>
@@ -200,6 +232,7 @@ function Customers() {
             </tbody>
           </table>
         </div>
+        )}
         {/* Card layout for mobile */}
         <div className="block sm:hidden space-y-4">
           {customers.map((customer) => (
@@ -211,7 +244,7 @@ function Customers() {
               <div className="text-gray-600 text-sm mb-1">Gender: {customer.gender}</div>
               <div className="text-gray-600 text-sm mb-1">City: {customer.city}</div>
               <div className="text-gray-600 text-sm mb-1">Purchases: {customer.total_purchases}</div>
-              <div className="text-gray-600 text-sm mb-1">Spent: ${customer.total_spent.toFixed(2)}</div>
+              <div className="text-gray-600 text-sm mb-1">Spent: ${Number(customer.total_spent).toFixed(2)}</div>
               <div className="mb-2">
                 <span className={`px-2 py-1 rounded-full text-xs font-semibold ${customer.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>{customer.is_active ? 'Active' : 'Inactive'}</span>
               </div>
@@ -369,12 +402,14 @@ function Customers() {
               <button
                 onClick={editingCustomer ? handleEditCustomer : handleAddCustomer}
                 className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg font-medium transition"
+                disabled={loading}
               >
                 {editingCustomer ? 'Update Customer' : 'Add Customer'}
               </button>
               <button
                 onClick={closeModal}
                 className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 py-2 rounded-lg font-medium transition"
+                disabled={loading}
               >
                 Cancel
               </button>
