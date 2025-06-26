@@ -20,7 +20,6 @@ function SaleItems() {
     notes: '',
     loyalty_points_earned: 0,
     loyalty_points_redeemed: 0,
-    sale_date: '',
   });
 
   // Detail (items) state
@@ -159,7 +158,6 @@ function SaleItems() {
       notes: '',
       loyalty_points_earned: 0,
       loyalty_points_redeemed: 0,
-      sale_date: '',
     });
     setItems([]);
     setItemForm({
@@ -220,7 +218,6 @@ function SaleItems() {
       notes: saleObj.notes || '',
       loyalty_points_earned: saleObj.loyalty_points_earned || 0,
       loyalty_points_redeemed: saleObj.loyalty_points_redeemed || 0,
-      sale_date: saleObj.sale_date ? saleObj.sale_date.slice(0, 16) : '',
     });
     setItems(saleObj.items || []);
     setItemForm({
@@ -254,15 +251,12 @@ function SaleItems() {
     const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
     const total_discount = items.reduce((sum, item) => sum + Number(item.discount_amount || 0), 0);
     const total_amount = subtotal + Number(sale.tax_amount) - total_discount;
-    // Default sale_date to now if not set
-    const sale_date = sale.sale_date || new Date().toISOString().slice(0, 16);
     const saleData = {
       sale: {
         ...sale,
         subtotal,
         discount_amount: total_discount,
         total_amount,
-        sale_date,
       },
       items: items.map(({ id, ...rest }) => rest),
     };
@@ -399,7 +393,7 @@ function SaleItems() {
         {/* Master Section */}
         <div className="bg-white p-4 rounded shadow">
           <h2 className="font-bold text-lg mb-2">Sale Information</h2>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Sale Number *</label>
               <input name="sale_number" value={sale.sale_number} onChange={handleSaleChange} placeholder="Sale Number" className="border p-2 rounded w-full" />
@@ -414,7 +408,7 @@ function SaleItems() {
                   </option>
                 ))}
               </select>
-      </div>
+              </div>
               <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">User *</label>
               <select name="user_id" value={sale.user_id} onChange={handleSaleChange} className="border p-2 rounded w-full">
@@ -432,10 +426,6 @@ function SaleItems() {
                   <option key={store.id} value={store.id}>{store.name || store.store_name || store.id}</option>
                 ))}
               </select>
-              </div>
-              <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Sale Date *</label>
-              <input name="sale_date" value={sale.sale_date} onChange={handleSaleChange} placeholder="Sale Date" type="datetime-local" className="border p-2 rounded w-full" />
               </div>
               <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
@@ -589,7 +579,7 @@ function SaleItems() {
           <button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded w-full sm:w-auto" disabled={loading}>{loading ? 'Submitting...' : (editingSaleId ? 'Update Sale' : 'Submit Sale')}</button>
           {(editingSaleId || items.length > 0) && (
             <button type="button" onClick={handleCancel} className="bg-gray-400 text-white px-4 py-2 rounded w-full sm:w-auto" disabled={loading}>Cancel</button>
-          )}
+      )}
         </div>
       </form>
     </div>

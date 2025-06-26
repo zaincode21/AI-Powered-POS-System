@@ -24,7 +24,9 @@ async function getSaleById(req, res) {
 // Create a new sale
 async function createSale(req, res) {
   try {
-    const newSale = await salesModel.createSale(req.body);
+    // Always set sale_date to now
+    const saleData = { ...req.body, sale_date: new Date().toISOString() };
+    const newSale = await salesModel.createSale(saleData);
     res.status(201).json(newSale);
   } catch (err) {
     res.status(500).json({ error: 'Failed to create sale' });
@@ -87,6 +89,8 @@ async function createSaleWithItems(req, res) {
       return res.status(400).json({ error: 'Each item must have product_id, quantity, and unit_price' });
     }
   }
+  // Always set sale_date to now
+  sale.sale_date = new Date().toISOString();
   try {
     const createdSale = await salesModel.createSaleWithItems(sale, items);
     res.status(201).json(createdSale);
