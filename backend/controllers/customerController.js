@@ -19,9 +19,29 @@ async function getCustomerById(req, res) {
   }
 }
 
+async function generateSequentialCustomerCode() {
+  const result = await customerModel.getLatestCustomerCode();
+  let nextNumber = 1;
+  if (result && result.customer_code) {
+    const match = result.customer_code.match(/^COST-(\d{3})$/);
+    if (match) {
+      const lastNum = parseInt(match[1], 10);
+      if (!isNaN(lastNum)) {
+        nextNumber = lastNum + 1;
+      }
+    }
+  }
+  const padded = String(nextNumber).padStart(3, '0');
+  return `COST-${padded}`;
+}
+
 async function createCustomer(req, res) {
   try {
-    const newCustomer = await customerModel.createCustomer(req.body);
+    const customer_code = await generateSequentialCustomerCode();
+    const newCustomer = await customerModel.createCustomer({
+      ...req.body,
+      customer_code,
+    });
     res.status(201).json(newCustomer);
   } catch (err) {
     res.status(500).json({ error: 'Failed to create customer', details: err.message });

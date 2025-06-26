@@ -146,6 +146,14 @@ async function createSaleWithItems(saleData, items) {
   }
 }
 
+// Get the latest sale_number
+async function getLatestSaleNumber() {
+  const result = await pool.query(
+    `SELECT sale_number FROM sales ORDER BY sale_number DESC LIMIT 1`
+  );
+  return result.rows[0];
+}
+
 module.exports = {
   getAllSales,
   getSaleById,
@@ -154,4 +162,5 @@ module.exports = {
   deleteSale,
   getSaleWithItemsById,
   createSaleWithItems,
+  getLatestSaleNumber,
 }; 

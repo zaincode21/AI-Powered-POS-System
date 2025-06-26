@@ -66,10 +66,19 @@ async function deleteCustomer(id) {
   await db.query('DELETE FROM customers WHERE id = $1', [id]);
 }
 
+// Get the latest customer_code
+async function getLatestCustomerCode() {
+  const { rows } = await db.query(
+    `SELECT customer_code FROM customers ORDER BY customer_code DESC LIMIT 1`
+  );
+  return rows[0];
+}
+
 module.exports = {
   getAllCustomers,
   getCustomerById,
   createCustomer,
   updateCustomer,
   deleteCustomer,
+  getLatestCustomerCode,
 }; 

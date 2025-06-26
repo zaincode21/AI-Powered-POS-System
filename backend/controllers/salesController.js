@@ -21,11 +21,34 @@ async function getSaleById(req, res) {
   }
 }
 
+// Helper to generate sequential sale number
+async function generateSequentialSaleNumber() {
+  const result = await salesModel.getLatestSaleNumber();
+  let nextNumber = 1;
+  if (result && result.sale_number) {
+    // Extract digits using regex
+    const match = result.sale_number.match(/^SL-(\d{6})$/);
+    if (match) {
+      const lastNum = parseInt(match[1], 10);
+      if (!isNaN(lastNum)) {
+        nextNumber = lastNum + 1;
+      }
+    }
+  }
+  const padded = String(nextNumber).padStart(6, '0');
+  return `SL-${padded}`;
+}
+
 // Create a new sale
 async function createSale(req, res) {
   try {
-    // Always set sale_date to now
-    const saleData = { ...req.body, sale_date: new Date().toISOString() };
+    // Always set sale_number and sale_date
+    const sale_number = await generateSequentialSaleNumber();
+    const saleData = {
+      ...req.body,
+      sale_number,
+      sale_date: new Date().toISOString(),
+    };
     const newSale = await salesModel.createSale(saleData);
     res.status(201).json(newSale);
   } catch (err) {
@@ -74,7 +97,7 @@ async function getSaleWithItems(req, res) {
 async function createSaleWithItems(req, res) {
   const { sale, items } = req.body;
   // Validate sale object
-  const requiredFields = ['sale_number', 'customer_id', 'user_id', 'store_id', 'total_amount', 'payment_method'];
+  const requiredFields = ['customer_id', 'user_id', 'store_id', 'total_amount', 'payment_method'];
   for (const field of requiredFields) {
     if (!sale[field]) {
       return res.status(400).json({ error: `Missing required field: ${field}` });
@@ -89,7 +112,8 @@ async function createSaleWithItems(req, res) {
       return res.status(400).json({ error: 'Each item must have product_id, quantity, and unit_price' });
     }
   }
-  // Always set sale_date to now
+  // Always set sale_number and sale_date
+  sale.sale_number = await generateSequentialSaleNumber();
   sale.sale_date = new Date().toISOString();
   try {
     const createdSale = await salesModel.createSaleWithItems(sale, items);

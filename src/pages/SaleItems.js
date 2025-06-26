@@ -3,11 +3,11 @@ import { getProducts } from '../services/productService';
 import { getUsers } from '../services/userService';
 import { getStores } from '../services/storeService';
 import { getCustomers } from '../services/customerService';
+import { useLocation } from 'react-router-dom';
 
 function SaleItems() {
   // Master (sale) state
   const [sale, setSale] = useState({
-    sale_number: '',
     customer_id: '',
     user_id: '',
     store_id: '',
@@ -44,6 +44,19 @@ function SaleItems() {
   const [sales, setSales] = useState([]); // All sales for Read
   const [editingSaleId, setEditingSaleId] = useState(null); // For Update
   const [customers, setCustomers] = useState([]);
+  const [receiptData, setReceiptData] = useState(null);
+
+  const location = useLocation();
+
+  // Place these calculations before the return statement
+  const computedSubtotal = receiptData && receiptData.items
+    ? receiptData.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
+    : 0;
+  const subtotal = (receiptData && receiptData.subtotal !== undefined && receiptData.subtotal !== null)
+    ? Number(receiptData.subtotal)
+    : computedSubtotal;
+  const vat = subtotal * 0.18;
+  const total = subtotal + vat - Number(receiptData && receiptData.discount_amount || 0);
 
   useEffect(() => {
     getProducts().then(setProducts).catch(() => setProducts([]));
@@ -51,7 +64,23 @@ function SaleItems() {
     getStores().then(setStores).catch(() => setStores([]));
     getCustomers().then(setCustomers).catch(() => setCustomers([]));
     fetchSales();
-  }, []);
+    // Parse product info from URL if present
+    const params = new URLSearchParams(location.search);
+    const productParam = params.get('product');
+    if (productParam) {
+      try {
+        const product = JSON.parse(decodeURIComponent(productParam));
+        setItemForm(itemForm => ({
+          ...itemForm,
+          product_id: product.id,
+          product_name: product.name,
+          unit_price: product.selling_price || product.cost_price || 0,
+        }));
+      } catch (e) {
+        // Invalid QR or param
+      }
+    }
+  }, [location.search]);
 
   // Fetch all sales (Read)
   const fetchSales = async () => {
@@ -145,7 +174,6 @@ function SaleItems() {
   const handleCancel = () => {
     setEditingSaleId(null);
     setSale({
-      sale_number: '',
       customer_id: '',
       user_id: '',
       store_id: '',
@@ -205,7 +233,6 @@ function SaleItems() {
   const handleEditSale = (saleObj) => {
     setEditingSaleId(saleObj.id);
     setSale({
-      sale_number: saleObj.sale_number || '',
       customer_id: saleObj.customer_id || '',
       user_id: saleObj.user_id || '',
       store_id: saleObj.store_id || '',
@@ -236,7 +263,7 @@ function SaleItems() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     // Validate required fields
-    if (!sale.sale_number || !sale.customer_id || !sale.user_id || !sale.store_id) {
+    if (!sale.customer_id || !sale.user_id || !sale.store_id) {
       setMessage('Please fill all required sale fields.');
       setMessageType('error');
       return;
@@ -285,6 +312,7 @@ function SaleItems() {
         }
         throw new Error(result.error || result.details || 'Failed to submit sale.');
       }
+      setReceiptData(result); // Show receipt popup
       setMessage(editingSaleId ? 'Sale updated successfully!' : 'Sale submitted successfully!');
       setMessageType('success');
       handleCancel();
@@ -299,9 +327,20 @@ function SaleItems() {
   };
 
   // Live calculation
-  const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
-  const total_discount = items.reduce((sum, item) => sum + Number(item.discount_amount || 0), 0);
-  const total_amount = subtotal + Number(sale.tax_amount) - total_discount;
+  const total_amount = subtotal + Number(sale.tax_amount) - Number(sale.discount_amount || 0);
+
+  // Fetch and show receipt for any sale
+  const handleViewReceipt = async (saleId) => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/sales/with-items/${saleId}`);
+      if (!res.ok) throw new Error('Failed to fetch sale receipt');
+      const data = await res.json();
+      setReceiptData(data);
+    } catch (err) {
+      setMessage('Failed to load receipt');
+      setMessageType('error');
+    }
+  };
 
   return (
     <div className="flex flex-col w-full min-h-screen space-y-4 sm:space-y-6">
@@ -333,7 +372,7 @@ function SaleItems() {
         <div className="flex items-center mb-2">
           <span className="text-red-500 text-xl mr-2">🤖</span>
           <span className="font-semibold text-red-700 text-base">AI Sales Insights</span>
-        </div>
+                    </div>
         <div className="text-red-700 text-sm mb-3">
           {aiInsights.length} products are low in stock based on AI demand forecasting.
         </div>
@@ -347,58 +386,13 @@ function SaleItems() {
           ))}
         </div>
       </div>
-      {/* Sales Table (Read) */}
-      <div className="bg-white rounded-xl shadow p-4 sm:p-6 w-full">
-        <h2 className="text-lg font-bold mb-4">All Sales</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-xs sm:text-sm">
-            <thead>
-              <tr className="text-left text-gray-500 border-b">
-                <th className="py-2 px-2 font-semibold">Sale #</th>
-                <th className="py-2 px-2 font-semibold">Product Name(s)</th>
-                <th className="py-2 px-2 font-semibold">Quantity</th>
-                <th className="py-2 px-2 font-semibold">Unit Price</th>
-                <th className="py-2 px-2 font-semibold">Total Amount</th>
-                <th className="py-2 px-2 font-semibold">Date</th>
-                <th className="py-2 px-2 font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sales.map(sale => {
-                const items = sale.items || [];
-                const productNames = items.map(i => i.product_name).join(', ');
-                const totalQty = items.reduce((sum, i) => sum + Number(i.quantity), 0);
-                const unitPrices = items.map(i => Number(i.unit_price).toFixed(2)).join(', ');
-                return (
-                  <tr key={sale.id} className="border-b hover:bg-gray-50">
-                    <td className="py-2 px-2">{sale.sale_number}</td>
-                    <td className="py-2 px-2">{productNames}</td>
-                    <td className="py-2 px-2">{totalQty}</td>
-                    <td className="py-2 px-2">{unitPrices}</td>
-                    <td className="py-2 px-2">${sale.total_amount}</td>
-                    <td className="py-2 px-2">{sale.sale_date ? sale.sale_date.slice(0, 10) : ''}</td>
-                    <td className="py-2 px-2">
-                      <button onClick={() => handleEditSale(sale)} className="text-blue-600 hover:text-blue-800 p-1 mr-2">Edit</button>
-                      <button onClick={() => handleDeleteSale(sale.id)} className="text-red-600 hover:text-red-800 p-1">Delete</button>
-                  </td>
-                </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-              </div>
       {/* Master-Detail Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Master Section */}
         <div className="bg-white p-4 rounded shadow">
           <h2 className="font-bold text-lg mb-2">Sale Information</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Sale Number *</label>
-              <input name="sale_number" value={sale.sale_number} onChange={handleSaleChange} placeholder="Sale Number" className="border p-2 rounded w-full" />
-            </div>
-            <div>
+              <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Customer *</label>
               <select name="customer_id" value={sale.customer_id} onChange={handleSaleChange} className="border p-2 rounded w-full">
                 <option value="">Select Customer</option>
@@ -445,7 +439,7 @@ function SaleItems() {
           {/* Live calculation display */}
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="text-gray-700">Subtotal: <span className="font-semibold">${subtotal.toFixed(2)}</span></div>
-            <div className="text-gray-700">Discount: <span className="font-semibold">${total_discount.toFixed(2)}</span></div>
+            <div className="text-gray-700">Discount: <span className="font-semibold">${Number(sale.discount_amount).toFixed(2)}</span></div>
             <div className="text-gray-700">Total: <span className="font-semibold">${total_amount.toFixed(2)}</span></div>
           </div>
         </div>
@@ -490,8 +484,20 @@ function SaleItems() {
               <input name="discount_amount" type="number" value={itemForm.discount_amount} onChange={handleItemChange} placeholder="Discount" className="border p-2 rounded w-full" min="0" step="0.01" />
             </div>
             <div className="flex items-end">
-              <button type="button" onClick={addOrUpdateItem} className="bg-green-500 text-white rounded px-2 w-full">
-                {editingItemId ? 'Update' : 'Add'}
+              <button
+                type="button"
+                onClick={addOrUpdateItem}
+                className={`flex items-center justify-center gap-2 rounded px-3 py-2 w-full font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2 ${editingItemId ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-green-500 hover:bg-green-600 text-white'}`}
+              >
+                {editingItemId ? (
+                  <>
+                    <span className="material-icons text-base">edit</span> Update
+                  </>
+                ) : (
+                  <>
+                    <span className="material-icons text-base">add</span> Add
+                  </>
+                )}
               </button>
             </div>
             <div className="flex items-end">
@@ -582,6 +588,135 @@ function SaleItems() {
       )}
         </div>
       </form>
+      {/* Receipt Popup Modal */}
+      {receiptData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 print:p-0">
+          <div
+            className="pos-receipt bg-white rounded shadow-lg p-4 w-full max-w-xs font-mono text-xs print:rounded-none print:shadow-none print:p-0"
+            style={{ minWidth: 320, maxWidth: 380 }}
+          >
+            <button
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-xl print:hidden no-print"
+              onClick={() => setReceiptData(null)}
+              title="Close"
+            >×</button>
+            <div className="text-center font-bold text-base mb-1">XYZ Electronics Store</div>
+            <div className="text-center mb-1">123 Main St, Kigali</div>
+            <div className="text-center mb-2">Phone: +250 789 123 456</div>
+            <div className="text-center">--------------------------------</div>
+            <div className="flex justify-between mb-1">
+              <span>Receipt: {receiptData.sale_number?.replace('SL-', '') || receiptData.id}</span>
+              <span>
+                {receiptData.sale_date ? receiptData.sale_date.slice(2, 10).replace(/-/g, '/') : ''}
+              </span>
+            </div>
+            <div className="flex justify-between mb-1">
+              <span>Time:</span>
+              <span>
+                {receiptData.sale_date
+                  ? new Date(receiptData.sale_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                  : ''}
+              </span>
+            </div>
+            <div className="mb-1">Customer: {receiptData.customer_name || (receiptData.customer?.first_name + ' ' + receiptData.customer?.last_name) || ''}</div>
+            <div className="text-center">--------------------------------</div>
+            <div>
+              <div className="flex font-bold">
+                <span className="flex-1">Item</span>
+                <span className="w-6 text-right">Q</span>
+                <span className="w-12 text-right">Price</span>
+                <span className="w-12 text-right">Total</span>
+              </div>
+              {receiptData.items && receiptData.items.map((item, idx) => (
+                <div className="flex" key={idx}>
+                  <span className="flex-1 truncate">{item.product_name}</span>
+                  <span className="w-6 text-right">{item.quantity}</span>
+                  <span className="w-12 text-right">${Number(item.unit_price).toFixed(2)}</span>
+                  <span className="w-12 text-right">${(item.quantity * item.unit_price).toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="text-center mt-1">--------------------------------</div>
+            <div className="flex justify-between">
+              <span>Subtotal:</span>
+              <span>${subtotal.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Discount:</span>
+              <span>-${Number(receiptData && receiptData.discount_amount || 0).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>VAT 18%:</span>
+              <span>${vat.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between font-bold border-t border-dashed mt-1 pt-1">
+              <span>Total:</span>
+              <span>${total.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Paid:</span>
+              <span>${total.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between mb-1">
+              <span>Balance:</span>
+              <span>$0.00</span>
+            </div>
+            <div className="text-center">--------------------------------</div>
+            <div className="text-center mt-2 mb-1">Thank you for shopping!</div>
+            <button
+              className="mt-2 bg-purple-600 text-white px-4 py-1 rounded print:hidden no-print w-full"
+              onClick={() => window.print()}
+            >Print</button>
+          </div>
+        </div>
+      )}
+      {/* Sales Table (Read) - Now at the bottom */}
+      <div className="bg-white rounded-xl shadow p-4 sm:p-6 w-full mt-4">
+        <h2 className="text-lg font-bold mb-4">All Sales</h2>
+        <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
+          <table className="min-w-full text-xs sm:text-sm bg-white rounded-xl overflow-hidden">
+            <thead>
+              <tr className="bg-gray-100 text-gray-700">
+                <th className="py-3 px-3 font-semibold text-left whitespace-nowrap">Sale #</th>
+                <th className="py-3 px-3 font-semibold text-left whitespace-nowrap">Product Name(s)</th>
+                <th className="py-3 px-3 font-semibold text-right whitespace-nowrap">Quantity</th>
+                <th className="py-3 px-3 font-semibold text-right whitespace-nowrap">Unit Price</th>
+                <th className="py-3 px-3 font-semibold text-right whitespace-nowrap">Total Amount</th>
+                <th className="py-3 px-3 font-semibold text-left whitespace-nowrap">Date</th>
+                <th className="py-3 px-3 font-semibold text-center whitespace-nowrap">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sales.map((sale, idx) => {
+                const items = sale.items || [];
+                const productNames = items.map(i => i.product_name).join(', ');
+                const totalQty = items.reduce((sum, i) => sum + Number(i.quantity), 0);
+                const unitPrices = items.map(i => Number(i.unit_price).toFixed(2)).join(', ');
+                return (
+                  <tr key={sale.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50 hover:bg-purple-50 transition'}>
+                    <td className="py-2 px-3 font-semibold text-gray-800 whitespace-nowrap">{sale.sale_number}</td>
+                    <td className="py-2 px-3 whitespace-nowrap truncate max-w-xs">{productNames}</td>
+                    <td className="py-2 px-3 text-right whitespace-nowrap">{totalQty}</td>
+                    <td className="py-2 px-3 text-right whitespace-nowrap">{unitPrices}</td>
+                    <td className="py-2 px-3 text-right whitespace-nowrap">${sale.total_amount}</td>
+                    <td className="py-2 px-3 whitespace-nowrap">{sale.sale_date ? sale.sale_date.slice(0, 10) : ''}</td>
+                    <td className="py-2 px-3 text-center whitespace-nowrap">
+                      <button
+                        onClick={() => handleViewReceipt(sale.id)}
+                        className="text-green-600 hover:text-green-800 p-1 mr-2"
+                      >
+                        View Receipt
+                      </button>
+                      <button onClick={() => handleEditSale(sale)} className="text-blue-600 hover:text-blue-800 p-1 mr-2">Edit</button>
+                      <button onClick={() => handleDeleteSale(sale.id)} className="text-red-600 hover:text-red-800 p-1">Delete</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
