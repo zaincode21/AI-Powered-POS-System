@@ -386,14 +386,14 @@ function SaleItems() {
                     <td className="py-2 px-2">
                       <button onClick={() => handleEditSale(sale)} className="text-blue-600 hover:text-blue-800 p-1 mr-2">Edit</button>
                       <button onClick={() => handleDeleteSale(sale.id)} className="text-red-600 hover:text-red-800 p-1">Delete</button>
-                    </td>
-                  </tr>
+                  </td>
+                </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
-      </div>
+              </div>
       {/* Master-Detail Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Master Section */}
@@ -414,8 +414,8 @@ function SaleItems() {
                   </option>
                 ))}
               </select>
-            </div>
-            <div>
+      </div>
+              <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">User *</label>
               <select name="user_id" value={sale.user_id} onChange={handleSaleChange} className="border p-2 rounded w-full">
                 <option value="">Select User</option>
@@ -423,8 +423,8 @@ function SaleItems() {
                   <option key={user.id} value={user.id}>{user.name || user.username || user.email}</option>
                 ))}
               </select>
-            </div>
-            <div>
+              </div>
+              <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Store *</label>
               <select name="store_id" value={sale.store_id} onChange={handleSaleChange} className="border p-2 rounded w-full">
                 <option value="">Select Store</option>
@@ -432,12 +432,12 @@ function SaleItems() {
                   <option key={store.id} value={store.id}>{store.name || store.store_name || store.id}</option>
                 ))}
               </select>
-            </div>
-            <div>
+              </div>
+              <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Sale Date *</label>
               <input name="sale_date" value={sale.sale_date} onChange={handleSaleChange} placeholder="Sale Date" type="datetime-local" className="border p-2 rounded w-full" />
-            </div>
-            <div>
+              </div>
+              <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
               <select name="payment_method" value={sale.payment_method} onChange={handleSaleChange} className="border p-2 rounded w-full">
                 <option value="cash">Cash</option>
@@ -446,14 +446,14 @@ function SaleItems() {
                 <option value="gift_card">Gift Card</option>
                 <option value="store_credit">Store Credit</option>
               </select>
-            </div>
+              </div>
             <div className="col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
               <input name="notes" value={sale.notes} onChange={handleSaleChange} placeholder="Notes" className="border p-2 rounded w-full" />
             </div>
           </div>
           {/* Live calculation display */}
-          <div className="mt-4 grid grid-cols-3 gap-4">
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="text-gray-700">Subtotal: <span className="font-semibold">${subtotal.toFixed(2)}</span></div>
             <div className="text-gray-700">Discount: <span className="font-semibold">${total_discount.toFixed(2)}</span></div>
             <div className="text-gray-700">Total: <span className="font-semibold">${total_amount.toFixed(2)}</span></div>
@@ -462,7 +462,7 @@ function SaleItems() {
         {/* Detail Section */}
         <div className="bg-white p-4 rounded shadow">
           <h2 className="font-bold text-lg mb-2">Sale Items</h2>
-          <div className="grid grid-cols-6 gap-2 mb-2">
+          <div className="grid grid-cols-1 sm:grid-cols-6 gap-2 mb-2">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Product *</label>
               <select
@@ -492,7 +492,7 @@ function SaleItems() {
               <input name="quantity" type="number" value={itemForm.quantity} onChange={handleItemChange} placeholder="Qty" className="border p-2 rounded w-full" min="1" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Unit Price *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Unit Price </label>
               <input name="unit_price" type="number" value={itemForm.unit_price} onChange={handleItemChange} placeholder="Unit Price" className="border p-2 rounded w-full" min="0" step="0.01" readOnly />
             </div>
             <div>
@@ -510,40 +510,86 @@ function SaleItems() {
               )}
             </div>
           </div>
-          <table className="min-w-full text-xs sm:text-sm">
-            <thead>
-              <tr>
-                <th>Product ID</th>
-                <th>Name</th>
-                <th>Qty</th>
-                <th>Unit Price</th>
-                <th>Discount</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map(item => (
-                <tr key={item.id}>
-                  <td>{item.product_id}</td>
-                  <td>{item.product_name}</td>
-                  <td>{item.quantity}</td>
-                  <td>{item.unit_price}</td>
-                  <td>{item.discount_amount}</td>
-                  <td>
-                    <button type="button" onClick={() => editItem(item)} className="text-blue-500 mr-2">Edit</button>
-                    <button type="button" onClick={() => removeItem(item.id)} className="text-red-500">Remove</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {/* Responsive Sale Items Table/Card */}
+          <div>
+            {/* Table for sm+ screens */}
+            <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm hidden sm:block">
+              <table className="min-w-full text-xs sm:text-sm bg-white rounded-xl overflow-hidden">
+                <thead>
+                  <tr className="bg-gray-100 text-gray-700">
+                    <th className="py-3 px-3 font-semibold text-left rounded-tl-xl">Name</th>
+                    <th className="py-3 px-3 font-semibold text-right">Qty</th>
+                    <th className="py-3 px-3 font-semibold text-right">Unit Price</th>
+                    <th className="py-3 px-3 font-semibold text-right rounded-tr-xl">Discount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-6 text-center text-gray-400">No sale items added yet.</td>
+                    </tr>
+                  ) : (
+                    items.map((item, idx) => (
+                      <tr key={item.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="py-2 px-3 font-medium text-gray-800">{item.product_name}</td>
+                        <td className="py-2 px-3 text-right">{item.quantity}</td>
+                        <td className="py-2 px-3 text-right">${Number(item.unit_price).toFixed(2)}</td>
+                        <td className="py-2 px-3 text-right">${Number(item.discount_amount).toFixed(2)}</td>
+                      </tr>
+                    ))
+                  )}
+                  {/* Total Amount Row */}
+                  <tr className="font-bold bg-purple-50 border-t border-purple-200">
+                    <td colSpan={2} className="py-3 px-3 text-right text-purple-700">Total</td>
+                    <td colSpan={2} className="py-3 px-3 text-right text-purple-700">
+                      {items.length > 0 ?
+                        `$${items.reduce((sum, item) => sum + (item.quantity * item.unit_price - (item.discount_amount || 0)), 0).toFixed(2)}`
+                        : '$0.00'}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            {/* Card/List for xs screens */}
+            <div className="sm:hidden space-y-3">
+              {items.length === 0 ? (
+                <div className="py-6 text-center text-gray-400 border rounded-xl">No sale items added yet.</div>
+              ) : (
+                items.map((item, idx) => (
+                  <div key={item.id} className="border rounded-xl p-3 bg-white flex flex-col">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="font-semibold text-gray-800">{item.product_name}</span>
+                      <span className="text-xs text-gray-500">Qty: <span className="font-bold">{item.quantity}</span></span>
+                    </div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span>Unit Price:</span>
+                      <span className="font-semibold">${Number(item.unit_price).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span>Discount:</span>
+                      <span className="font-semibold">${Number(item.discount_amount).toFixed(2)}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+              {/* Total Row */}
+              <div className="font-bold bg-purple-50 border border-purple-200 rounded-xl p-3 flex justify-between mt-2 text-purple-700">
+                <span>Total</span>
+                <span>
+                  {items.length > 0 ?
+                    `$${items.reduce((sum, item) => sum + (item.quantity * item.unit_price - (item.discount_amount || 0)), 0).toFixed(2)}`
+                    : '$0.00'}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
         {/* Submit/Cancel */}
-        <div className="flex gap-4">
-          <button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded" disabled={loading}>{loading ? 'Submitting...' : (editingSaleId ? 'Update Sale' : 'Submit Sale')}</button>
+        <div className="flex flex-col sm:flex-row gap-4">
+          <button type="submit" className="bg-purple-600 text-white px-4 py-2 rounded w-full sm:w-auto" disabled={loading}>{loading ? 'Submitting...' : (editingSaleId ? 'Update Sale' : 'Submit Sale')}</button>
           {(editingSaleId || items.length > 0) && (
-            <button type="button" onClick={handleCancel} className="bg-gray-400 text-white px-4 py-2 rounded" disabled={loading}>Cancel</button>
-      )}
+            <button type="button" onClick={handleCancel} className="bg-gray-400 text-white px-4 py-2 rounded w-full sm:w-auto" disabled={loading}>Cancel</button>
+          )}
         </div>
       </form>
     </div>
