@@ -592,81 +592,115 @@ function SaleItems() {
       {receiptData && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 print:p-0">
           <div
-            className="pos-receipt bg-white rounded shadow-lg p-4 w-full max-w-xs font-mono text-xs print:rounded-none print:shadow-none print:p-0"
-            style={{ minWidth: 320, maxWidth: 380 }}
+            className="pos-receipt bg-white rounded-lg shadow-2xl p-8 w-full max-w-md font-sans text-base print:rounded-none print:shadow-none print:p-0 border border-gray-200"
+            style={{ minWidth: 360, maxWidth: 420 }}
           >
+            {/* Close Button */}
             <button
-              className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-xl print:hidden no-print"
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl print:hidden no-print"
               onClick={() => setReceiptData(null)}
               title="Close"
             >×</button>
-            <div className="text-center font-bold text-base mb-1">XYZ Electronics Store</div>
-            <div className="text-center mb-1">123 Main St, Kigali</div>
-            <div className="text-center mb-2">Phone: +250 789 123 456</div>
-            <div className="text-center">--------------------------------</div>
+
+            {/* Store Name and Info */}
+            <div className="text-center font-extrabold text-2xl mb-2 tracking-wide text-purple-700">XYZ Electronics Store</div>
+            <div className="text-center text-gray-600 mb-1 text-sm">123 Main St, Kigali</div>
+            <div className="text-center text-gray-600 mb-3 text-sm">Phone: +250 789 123 456</div>
+            <div className="text-center text-gray-300 mb-3">────────────────────────────</div>
+
+            {/* Receipt Info */}
             <div className="flex justify-between mb-1">
-              <span>Receipt: {receiptData.sale_number?.replace('SL-', '') || receiptData.id}</span>
-              <span>
+              <span className="font-medium">Receipt:</span>
+              <span className="text-gray-700">{receiptData.sale_number?.replace('SL-', '') || receiptData.id}</span>
+            </div>
+            <div className="flex justify-between mb-1">
+              <span className="font-medium">Date:</span>
+              <span className="text-gray-700">
                 {receiptData.sale_date ? receiptData.sale_date.slice(2, 10).replace(/-/g, '/') : ''}
               </span>
             </div>
             <div className="flex justify-between mb-1">
-              <span>Time:</span>
-              <span>
+              <span className="font-medium">Time:</span>
+              <span className="text-gray-700">
                 {receiptData.sale_date
                   ? new Date(receiptData.sale_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                   : ''}
               </span>
             </div>
-            <div className="mb-1">Customer: {receiptData.customer_name || (receiptData.customer?.first_name + ' ' + receiptData.customer?.last_name) || ''}</div>
-            <div className="text-center">--------------------------------</div>
+            <div className="flex justify-between mb-1">
+              <span className="font-medium">Cashier:</span>
+              <span className="text-gray-700">John Doe</span> {/* Replace with actual cashier if available */}
+            </div>
+            <div className="flex justify-between mb-3">
+              <span className="font-medium">Payment:</span>
+              <span className="text-gray-700">Cash</span> {/* Replace with actual payment method if available */}
+            </div>
+            <div className="mb-1 text-gray-700">
+              <span className="font-medium">Customer:</span> {receiptData.customer_name || (receiptData.customer?.first_name + ' ' + receiptData.customer?.last_name) || ''}
+            </div>
+            <div className="text-center text-gray-300 mb-3">────────────────────────────</div>
+
+            {/* Items Table */}
             <div>
-              <div className="flex font-bold">
+              <div className="flex font-bold border-b border-dashed pb-2 mb-2 text-base">
                 <span className="flex-1">Item</span>
-                <span className="w-6 text-right">Q</span>
-                <span className="w-12 text-right">Price</span>
-                <span className="w-12 text-right">Total</span>
+                <span className="w-10 text-right">Qty</span>
+                <span className="w-16 text-right">Price</span>
+                <span className="w-16 text-right">Total</span>
               </div>
               {receiptData.items && receiptData.items.map((item, idx) => (
-                <div className="flex" key={idx}>
+                <div className="flex items-center mb-1.5" key={idx}>
                   <span className="flex-1 truncate">{item.product_name}</span>
-                  <span className="w-6 text-right">{item.quantity}</span>
-                  <span className="w-12 text-right">${Number(item.unit_price).toFixed(2)}</span>
-                  <span className="w-12 text-right">${(item.quantity * item.unit_price).toFixed(2)}</span>
+                  <span className="w-10 text-right">{item.quantity}</span>
+                  <span className="w-16 text-right">${Number(item.unit_price).toFixed(2)}</span>
+                  <span className="w-16 text-right">${(item.quantity * item.unit_price).toFixed(2)}</span>
                 </div>
               ))}
             </div>
-            <div className="text-center mt-1">--------------------------------</div>
-            <div className="flex justify-between">
+            <div className="text-center text-gray-300 mt-3 mb-3">────────────────────────────</div>
+
+            {/* Totals */}
+            <div className="flex justify-between mb-2 text-base">
               <span>Subtotal:</span>
               <span>${subtotal.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between mb-2 text-base">
               <span>Discount:</span>
-              <span>-${Number(receiptData && receiptData.discount_amount || 0).toFixed(2)}</span>
+              <span className="text-green-600">-${Number(receiptData && receiptData.discount_amount || 0).toFixed(2)}</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between mb-2 text-base">
               <span>VAT 18%:</span>
               <span>${vat.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between font-bold border-t border-dashed mt-1 pt-1">
+            <div className="flex justify-between font-bold border-t border-dashed mt-3 pt-3 text-xl">
               <span>Total:</span>
-              <span>${total.toFixed(2)}</span>
+              <span className="text-purple-700">${total.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between text-base">
               <span>Paid:</span>
               <span>${total.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between mb-1">
+            <div className="flex justify-between mb-2 text-base">
               <span>Balance:</span>
               <span>$0.00</span>
             </div>
-            <div className="text-center">--------------------------------</div>
-            <div className="text-center mt-2 mb-1">Thank you for shopping!</div>
-            <button
-              className="mt-2 bg-purple-600 text-white px-4 py-1 rounded print:hidden no-print w-full"
-              onClick={() => window.print()}
-            >Print</button>
+            <div className="text-center text-gray-300 mt-3 mb-3">────────────────────────────</div>
+
+            {/* Thank You */}
+            <div className="text-center mt-3 mb-1 font-semibold text-purple-700 text-lg">Thank you for shopping!</div>
+            <div className="text-center text-xs text-gray-400 mb-2">We appreciate your business. Please come again!</div>
+
+            {/* Print and Close Buttons */}
+            <div className="flex gap-2 mt-4 print:hidden no-print">
+              <button
+                className="bg-purple-700 hover:bg-purple-800 text-white px-4 py-2 rounded w-full font-semibold shadow text-base"
+                onClick={() => window.print()}
+              >Print Receipt</button>
+              <button
+                className="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded w-full font-semibold shadow text-base"
+                onClick={() => setReceiptData(null)}
+              >Close</button>
+            </div>
           </div>
         </div>
       )}
